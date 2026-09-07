@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Read",
+      "Glob",
+      "Grep",
+      "Bash(git:*)",
+      "Bash(python3:*)",
+      "Bash(ls:*)",
+      "Bash(cat:*)"
+    ],
+    "deny": [
+      "Edit(EĞİTİMLER/KAYNAKLAR/**)",
+      "Write(EĞİTİMLER/KAYNAKLAR/**)",
+      "MultiEdit(EĞİTİMLER/KAYNAKLAR/**)",
+      "Bash(psql:*)",
+      "Bash(pg_dump:*)",
+      "Bash(pg_restore:*)",
+      "Bash(mysql:*)",
+      "Bash(mysqldump:*)",
+      "Bash(mongosh:*)",
+      "Bash(mongo:*)",
+      "Bash(redis-cli:*)",
+      "Bash(sqlite3:*)",
+      "Bash(sqlcmd:*)"
+    ]
+  },
+  "env": {
+    "CLAUDE_CODE_SUBAGENT_MODEL": "sonnet"
+  }
+}

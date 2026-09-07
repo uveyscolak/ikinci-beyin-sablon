@@ -1,0 +1,13 @@
+{
+  "kullanici": "<AD>",
+  "projeler": "<PROJE-KÖKÜ>",
+  "notlar_dosyasi": "NOTLARIM.md",
+  "egitim_ciktilari": {
+    "ÖRNEK EĞİTİM": "İŞ/ALAN/Alan Playbook.md"
+  },
+  "yedek": "",
+  "alan_kokleri": [
+    "İŞ",
+    "KİŞİSEL"
+  ]
+}

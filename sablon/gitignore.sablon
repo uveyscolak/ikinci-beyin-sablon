@@ -1,0 +1,43 @@
+# ---- Gizli ----
+GİZLİ/
+*[Şş]ifre*
+*[Ss]ifre*
+*[Pp]arola*
+*[Cc]redential*
+*[Pp]assword*
+*.key
+*.pem
+*.p12
+.env
+.env.*
+*.bak
+.claude/settings.local.json
+
+# ---- Motor çalışma durumu ----
+.claude/hooks/.state/
+.claude/scripts/.state/*
+!.claude/scripts/.state/.gitkeep
+
+# ---- Büyük ikili dosyalar ----
+*.mp4
+*.mov
+*.mkv
+*.avi
+*.webm
+*.mp3
+*.wav
+*.m4a
+*.pdf
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.psd
+*.ai
+
+# ---- Sistem ve uygulama gürültüsü ----
+.DS_Store
+.trash/
+.obsidian/workspace*
+.obsidian/cache

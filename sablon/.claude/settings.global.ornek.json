@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "SessionStart": [{"hooks": [{"type": "command", "timeout": 15,
+      "command": "[ -x \"<VAULT>/.claude/hooks/session-start.sh\" ] || exit 0; exec \"<VAULT>/.claude/hooks/session-start.sh\""}]}],
+    "UserPromptSubmit": [
+      {"hooks": [{"type": "command", "timeout": 5,
+        "command": "[ -x \"<VAULT>/.claude/hooks/prompt-counter.sh\" ] || exit 0; exec \"<VAULT>/.claude/hooks/prompt-counter.sh\""}]},
+      {"hooks": [{"type": "command", "timeout": 10,
+        "command": "[ -x \"<VAULT>/.claude/hooks/proje-yonerge.sh\" ] || exit 0; exec \"<VAULT>/.claude/hooks/proje-yonerge.sh\""}]}
+    ],
+    "PreCompact": [{"hooks": [{"type": "command", "timeout": 10,
+      "command": "[ -x \"<VAULT>/.claude/hooks/pre-compact.sh\" ] || exit 0; exec \"<VAULT>/.claude/hooks/pre-compact.sh\""}]}],
+    "SessionEnd": [{"hooks": [{"type": "command", "timeout": 10,
+      "command": "[ -x \"<VAULT>/.claude/hooks/session-end.sh\" ] || exit 0; exec \"<VAULT>/.claude/hooks/session-end.sh\""}]}]
+  }
+}
