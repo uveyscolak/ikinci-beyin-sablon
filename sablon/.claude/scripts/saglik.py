@@ -716,10 +716,28 @@ def kontrol() -> dict:
         if dusen >= 3:
             sorunlar.append(f"Derleyici son {len(kosular)} koşunun {dusen}'ünde düştü.")
 
-    # 3) health.json (48 saat içindeki hata)
+    # 3) health.json (48 saat içindeki hata, sonradan başarılı koşuyla çözülmediyse)
     h = _json(STATE / "health.json")
     if isinstance(h.get("ts"), (int, float)) and simdi - float(h["ts"]) < 48 * 3600 and h.get("error"):
-        sorunlar.append(f"Motor hatası ({h.get('component')}): {str(h.get('error'))[:140]}")
+        hata_ts = float(h["ts"])
+        cozuldu = False
+        if h.get("component") == "compile":
+            tum_kosular = cs.get("runs", [])
+            if isinstance(tum_kosular, list):
+                for r in tum_kosular:
+                    if not isinstance(r, dict) or str(r.get("status", "")) != "ok":
+                        continue
+                    r_ts = r.get("ts")
+                    if isinstance(r_ts, str):
+                        try:
+                            r_zaman = dt.datetime.fromisoformat(r_ts).timestamp()
+                        except ValueError:
+                            continue
+                        if r_zaman > hata_ts:
+                            cozuldu = True
+                            break
+        if not cozuldu:
+            sorunlar.append(f"Motor hatası ({h.get('component')}): {str(h.get('error'))[:140]}")
 
     # 4) Bugün aynı içerikli iki özet var mı
     bugun = VAULT / "GÜNLÜK" / f"{dt.date.today().isoformat()}.md"

@@ -162,7 +162,13 @@ def _atomic_write_json(path: Path, payload: dict[str, Any]) -> None:
             pass
 
 
-def write_health(state_dir: Path, error: str, warning: bool = False) -> None:
+def write_health(
+    state_dir: Path,
+    error: str | None = None,
+    warning: bool = False,
+    warning_detail: str | None = None,
+    clear_error: bool = False,
+) -> None:
     """Record the latest compiler problem and preserve warning history."""
     try:
         payload: dict[str, Any] = {}
@@ -174,20 +180,22 @@ def write_health(state_dir: Path, error: str, warning: bool = False) -> None:
                     payload.update(loaded)
             except (OSError, ValueError, json.JSONDecodeError):
                 pass
-        payload.update(
-            {
-                "ts": int(time.time()),
-                "component": "compile",
-                "error": error,
-            }
-        )
-        if warning:
+        payload["ts"] = int(time.time())
+        payload["component"] = "compile"
+        if clear_error:
+            payload.pop("error", None)
+        elif error is not None:
+            payload["error"] = error
+        if warning and error is not None:
             warnings = payload.get("warnings", [])
             if not isinstance(warnings, list):
                 warnings = []
             if error not in warnings:
                 warnings.append(error)
             payload["warnings"] = warnings[-20:]
+        if warning_detail is not None:
+            payload["warning"] = warning_detail
+            print(f"compile: uyarı — {warning_detail}", file=sys.stderr)
         _atomic_write_json(health_path, payload)
     except OSError:
         pass
@@ -772,7 +780,10 @@ def _compile_one(
         if error is not None:
             return "claude", error
         if _sha256(daily_path) != expected_digest:
-            return "source-changed", "source-changed-after-call"
+            write_health(
+                state_dir,
+                warning_detail="source-changed-after-call",
+            )
         _yeni_dosyalari_duzelt(stage, before, _vault_adlari(vault_root))
         after = _manifest(stage)
         changed_files = _validate_manifest_diff(before, after)
@@ -951,6 +962,7 @@ def _run_locked(args: argparse.Namespace, trigger_claim: Path | None) -> int:
         state["last_run"] = timestamp
         state["last_status"] = "ok"
         _append_run(state, timestamp, daily_path.name, "ok")
+        write_health(STATE_DIR, clear_error=True)
         try:
             _save_state(state_path, state)
         except OSError:
