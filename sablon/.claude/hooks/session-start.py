@@ -18,6 +18,7 @@ from __future__ import annotations
 import datetime as dt
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -180,6 +181,55 @@ def saglik(vault: Path) -> str:
     return "\n".join(parca)
 
 
+def push_bekleyen(vault: Path) -> str:
+    """Kod depolarında push bekleyen commit ve commit bekleyen değişiklik taraması.
+
+    Commit Claude'a, push kullanıcıya ait (anayasa §8). Kullanıcı push'u unutuyor;
+    hatırlatma bu yüzden mekanizmaya bağlı, Claude'un aklında tutmasına değil.
+    """
+    kok = ayar(vault).get("projeler")
+    if not kok:
+        return ""  # kod klasörü beyin.json'da tanımlı değilse tarama yapılmaz
+    kokp = Path(str(kok))
+    if not kokp.is_dir():
+        return ""
+
+    def git(depo: Path, *arg: str) -> str:
+        try:
+            r = subprocess.run(("git", "-C", str(depo)) + arg, capture_output=True,
+                               text=True, timeout=10)
+            return r.stdout.strip() if r.returncode == 0 else ""
+        except (OSError, subprocess.SubprocessError):
+            return ""
+
+    pushlar: list[str] = []
+    kirliler: list[str] = []
+    for depo in sorted(p for p in kokp.iterdir() if (p / ".git").is_dir()):
+        if not git(depo, "remote"):
+            continue  # uzak deposu yoksa push diye bir şey yok
+        bekleyen = git(depo, "log", "--branches", "--not", "--remotes", "--oneline")
+        if bekleyen:
+            n = len(bekleyen.splitlines())
+            ilk = bekleyen.splitlines()[0]
+            pushlar.append(f"  - {depo.name}: {n} commit bekliyor (en yenisi: {ilk})")
+        kirli = git(depo, "status", "--porcelain")
+        if kirli:
+            kirliler.append(f"  - {depo.name}: {len(kirli.splitlines())} dosya")
+
+    if not pushlar and not kirliler:
+        return ""
+    parca = []
+    if pushlar:
+        parca.append("Push bekleyen depolar (push kullanıcıya ait, sen atma):")
+        parca.extend(pushlar)
+        parca.append("Kullanıcıya hatırlat: değişikliklerin çalıştığına kanaat getirdiyse"
+                     " beraber push edilir. Her commit değil, çalışan sürüm push edilir.")
+    if kirliler:
+        parca.append("Commit bekleyen değişiklik (commit sana ait, sormadan yap):")
+        parca.extend(kirliler)
+    return "\n".join(parca)
+
+
 def kur(vault: Path) -> str:
     hafiza = vault / "HAFIZA"
     kullanici = str(ayar(vault).get("kullanici") or "Kullanıcı")
@@ -187,6 +237,9 @@ def kur(vault: Path) -> str:
     s = saglik(vault)
     if s:
         bolumler.append(("[Beyin sağlığı — otomatik kontrol]", s))
+    p = push_bekleyen(vault)
+    if p:
+        bolumler.append(("[Kod depoları — push ve commit durumu]", p))
     son = kirp(son_oturum(hafiza), TAVAN["son"], "son oturum")
     if son:
         bolumler.append(("[Hafıza: Son Oturum]", son))

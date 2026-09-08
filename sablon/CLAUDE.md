@@ -184,7 +184,12 @@ doldurulur. Elle şablon kopyalanmaz. Detay: anayasa §8 ve `proje-kur` skill'i.
 - Yeni özellik geldiğinde doğrudan koda başlama: önce açık uçlu konuş, belirsizliği kapat, sonucu
   PRD'ye `## Ek — [özellik] (tarih)` olarak yaz. Küçük düzeltme için bu gerekmez.
 - Linkleme çift yönlü ve zorunlu; öksüz sayfa yasak; boş sayfa açma.
-- Kod commit'i <AD>'a aittir; sormadan push etme. Vault'u makine commit'ler.
+- **Kod commit'i sana aittir, push <AD>'a.** Anlamlı bir değişiklik bitince sormadan commit'le;
+  commit yerel bir kayıt noktasıdır, geri alması kolaydır ve bekletilince iş birikir. GitHub'a
+  push etme — dışarı çıkan şey geri alınamaz. <AD> değişikliğin çalıştığına kanaat getirince
+  beraber push edilir; her commit push edilmez, çalışan sürüm push edilir. Push bekleyen depolar
+  oturum başında bağlama düşer; commit attığın oturumun sonunda ayrıca tek cümleyle hatırlat.
+  Vault'u makine commit'ler.
 
 Bir projenin adı ya da bir alanın tetik kelimesi sohbette geçince o proje veya alanın yönergesi
 ve Context'i oturuma kendiliğinden bağlama gelir; aynı blokta `BİLGİ/` içindeki ilgili kavram
