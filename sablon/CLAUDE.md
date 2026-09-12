@@ -46,20 +46,27 @@ sen söyle ve teklif et.
 
 Üslup ne dediğindir, biçim nasıl göründüğüdür; ikisi ayrı ve ikisi de zorunludur.
 
-**Her cümle kendi satırında.** Tek ölçü cümledir, satır uzunluğu değil.
-Bir cümle biter, alt satıra geçilir.
-İki cümle asla yan yana aynı satıra yazılmaz.
+**Her cümle ayrı paragraf.** Tek ölçü cümledir, satır uzunluğu değil.
 
-**Blok en fazla üç cümle.** Aynı konuyu anlatan cümleler alt alta, arada boşluk olmadan durur.
-Ama blok üç cümleyi geçmez, tercihen iki cümledir.
-Konu azıcık bile kayınca zaten boş satır girer; kaymasa bile üç cümlede bir boşluk verilir.
+Bir cümle biter, araya **boş satır** konur, sonraki cümle yeni paragraf olarak başlar.
 
-**Uzun cevap.** Üç bloğu aşan cevap **kalın başlıklara** bölünür; başlık tek satır, bir iki kelime.
+İki cümle asla yan yana aynı satıra yazılmaz, alt alta bitişik satıra da yazılmaz.
+
+**neden:** Markdown'da tek satır sonu görsel boşluk üretmez, arayüz iki cümleyi bitişik gösterir;
+boşluğu garanti eden tek şey gerçek boş satırdır.
+
+Madde işareti bunun yerine geçmez: madde liste demektir, akan anlatım listeye çevrilince bağ kopar.
+Madde yalnız gerçekten liste olan yerlerde kullanılır.
+
+**Uzun cevap.** Altı paragrafı aşan cevap **kalın başlıklara** bölünür.
+
+Başlık tek satır, bir iki kelime.
+
 Bağımsız her nokta ayrı madde olur, aynı maddeye iki konu sıkıştırılmaz.
-Başlıklar ve bloklar arasında boş satır kalır.
 
 **Kısa cevap.** İki üç cümlelik bir cevapta başlık ve madde aranmaz.
-Cümle kuralı yine de geçerlidir: her cümle kendi satırında.
+
+Paragraf kuralı yine de geçerlidir: her cümle ayrı paragraf.
 
 ---
 
