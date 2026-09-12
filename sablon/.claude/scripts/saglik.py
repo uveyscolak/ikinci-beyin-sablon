@@ -319,6 +319,55 @@ YAPI_MUAF_KOK = {"HAFIZA", "GÜNLÜK", "BİLGİ", "GİZLİ", "YEDEK", ".git", ".
 YAPI_MUAF_AD = {"CLAUDE.md", "index.md", "00 İçindekiler.md"}
 PROJE_CEKIRDEK = ("— Proje", "Context", "Kararlar", "PRD")
 ALAN_SONEK = " — Alan.md"
+RE_FRONTMATTER_AD = re.compile(r"^ad:\s*(.+)$", re.MULTILINE)
+
+
+def cekirdek(klasor: Path, ad: str, tur: str) -> Path | None:
+    """`Context`, `Kararlar`, `PRD`, `Yönerge`, `Proje`, `Alan` dosyasını bulur.
+    Önce sade ad (Context.md), yoksa eski önekli ad (<Ad> Context.md)."""
+    sade = klasor / f"{tur}.md"
+    if sade.is_file():
+        return sade
+    onekli = klasor / f"{ad} {tur}.md"
+    if onekli.is_file():
+        return onekli
+    if tur in ("Proje", "Alan"):
+        tireli = klasor / f"{ad} — {tur}.md"
+        if tireli.is_file():
+            return tireli
+    return None
+
+
+def alan_dosyasi_mi(isim: str) -> bool:
+    return isim == "Alan.md" or isim.endswith(" — Alan.md")
+
+
+def alan_adi_oku(sayfa: Path, ad_dosyadan: str) -> str:
+    """`Alan.md` ise frontmatter'daki `ad:` alanını okur; yoksa/eksikse dosyadan türetilen adı döner."""
+    if sayfa.name != "Alan.md":
+        return ad_dosyadan
+    try:
+        with sayfa.open("r", encoding="utf-8") as f:
+            bas = f.read(2048)
+    except OSError:
+        return ad_dosyadan
+    satirlar = bas.splitlines()
+    if not satirlar or satirlar[0].strip() != "---":
+        return ad_dosyadan
+    son = None
+    for i, satir in enumerate(satirlar[1:], 1):
+        if satir.strip() in ("---", "..."):
+            son = i
+            break
+    if son is None:
+        return ad_dosyadan
+    blok = "\n".join(satirlar[1:son])
+    eslesme = RE_FRONTMATTER_AD.search(blok)
+    if eslesme:
+        deger = eslesme.group(1).strip().strip("\"'").strip()
+        if deger:
+            return deger
+    return ad_dosyadan
 
 
 def _yapi_dosyalar() -> list[Path]:
@@ -386,8 +435,32 @@ def _bolum_hedefleri(dosya: Path, baslik: str) -> set[str]:
     return hedefler
 
 
+def _icerik_alan_linkliyor_mu(icerik: str, alanlar: list[tuple[str, Path | None]]) -> bool:
+    """İçerikteki wiki-linklerden biri verilen alanlardan birini işaret ediyor mu.
+
+    Hedef sade ("Alan"), önekli ("<Ad> — Alan") ya da tam yollu ("İŞ/.../Alan")
+    olabilir; ölçüt hedefin taban adının "Alan" olması veya adla eşleşmesi.
+    """
+    adlar_kucuk = {_nfc(ad).casefold() for ad, _ in alanlar}
+    govde = RE_INLINE.sub(" ", RE_FENCE.sub(" ", icerik))
+    for m in RE_LINK.finditer(govde):
+        hedef = m.group(1).split("|")[0].split("#")[0].split("^")[0].strip()
+        if not hedef:
+            continue
+        k = _nfc(hedef).casefold()
+        if k.endswith(".md"):
+            k = k[:-3]
+        taban = k.rsplit("/", 1)[-1]
+        if taban == "alan":
+            return True
+        for ad_kucuk in adlar_kucuk:
+            if taban == f"{ad_kucuk} — alan":
+                return True
+    return False
+
+
 def _alanlari_bul() -> list[tuple[str, Path]]:
-    """İŞ ve KİŞİSEL altındaki `<Ad> — Alan.md` sayfaları."""
+    """İŞ ve KİŞİSEL altındaki `Alan.md` / `<Ad> — Alan.md` sayfaları."""
     bulunan: list[tuple[str, Path]] = []
     for kok_adi in (_ayar().get("alan_kokleri") or ["İŞ", "KİŞİSEL"]):
         kok = VAULT / kok_adi
@@ -395,8 +468,12 @@ def _alanlari_bul() -> list[tuple[str, Path]]:
             continue
         for p in kok.rglob("*.md"):
             ad = _nfc(p.name)
-            if ad.endswith(ALAN_SONEK):
-                bulunan.append((ad[: -len(ALAN_SONEK)], p))
+            if alan_dosyasi_mi(ad):
+                if ad == "Alan.md":
+                    ad_dosyadan = _nfc(p.parent.name)
+                else:
+                    ad_dosyadan = ad[: -len(ALAN_SONEK)]
+                bulunan.append((alan_adi_oku(p, ad_dosyadan), p))
     bulunan.sort(key=lambda x: x[0])
     return bulunan
 
@@ -428,26 +505,33 @@ def yapi_taramasi() -> dict:
         oksuz.append(_nfc(str(rel)))
 
     # 2) Proje çekirdeği ve 3) çift yönlü link
+    # Sade çekirdek adları ("Context.md" ...) ve eski önekli adlar ("<Ad> Context.md")
+    # ikisi de geçerlidir; hangisi varsa cekirdek() bulur (öneklendirme kuralı kalktı).
+    CEKIRDEK_SADE = {"Context.md", "Kararlar.md", "PRD.md", "Yönerge.md", "Proje.md", "Alan.md"}
     proje_eksik: list[str] = []
-    proje_onek: list[str] = []
     link_tek_yon: list[str] = []
     projeler = VAULT / "PROJELER"
     if projeler.is_dir():
         for d in sorted(x for x in projeler.iterdir() if x.is_dir() and not x.name.startswith(".")):
             ad = _nfc(d.name)
             for son in PROJE_CEKIRDEK:
-                if not (d / f"{ad} {son}.md").is_file():
-                    proje_eksik.append(f"PROJELER/{ad}: {ad} {son}.md yok")
-            cekirdek = {f"{ad} {son}.md" for son in PROJE_CEKIRDEK}
-            context = d / f"{ad} Context.md"
-            alt_sayfalar = _bolum_hedefleri(context, "## Alt Sayfalar")
+                tur = "Proje" if son == "— Proje" else son
+                if cekirdek(d, ad, tur) is None:
+                    proje_eksik.append(f"PROJELER/{ad}: {tur}.md yok")
+            cekirdek_dosyalari = {
+                f.name for son in PROJE_CEKIRDEK
+                for f in [cekirdek(d, ad, "Proje" if son == "— Proje" else son)]
+                if f is not None
+            }
+            yonerge_dosyasi = cekirdek(d, ad, "Yönerge")
+            if yonerge_dosyasi is not None:
+                cekirdek_dosyalari.add(yonerge_dosyasi.name)
+            context = cekirdek(d, ad, "Context")
+            alt_sayfalar = _bolum_hedefleri(context, "## Alt Sayfalar") if context is not None else set()
             for p in sorted(d.rglob("*.md")):
                 dosya_adi = _nfc(p.name)
                 rel = _nfc(str(p.relative_to(VAULT)))
-                if not dosya_adi.startswith(f"{ad} "):
-                    proje_onek.append(f"{rel}: '{ad} ' önekiyle başlamıyor")
-                    continue
-                if dosya_adi in cekirdek or dosya_adi == f"{ad} Yönerge.md":
+                if dosya_adi in CEKIRDEK_SADE or dosya_adi in cekirdek_dosyalari:
                     continue
                 govde_stem = _nfc(p.stem).casefold()
                 if govde_stem not in alt_sayfalar:
@@ -456,8 +540,11 @@ def yapi_taramasi() -> dict:
                     icerik = p.read_text(encoding="utf-8", errors="replace")
                 except OSError:
                     continue
-                if f"[[{ad} context".casefold() not in _nfc(icerik).casefold():
-                    link_tek_yon.append(f"{rel}: içinde [[{ad} Context]] geri linki yok")
+                icerik_kucuk = _nfc(icerik).casefold()
+                if f"[[{ad} context".casefold() not in icerik_kucuk \
+                        and "[[context" not in icerik_kucuk \
+                        and f"[[projeler/{ad.casefold()}/context".casefold() not in icerik_kucuk:
+                    link_tek_yon.append(f"{rel}: içinde Context geri linki yok")
 
     # 4) Alanlar: tetik satırı, Context ve Kararlar
     alanlar = _alanlari_bul()
@@ -471,8 +558,8 @@ def yapi_taramasi() -> dict:
         if not re.search(r"(?m)^tetik\s*:", bas):
             alan_eksik.append(f"{rel}: 'tetik:' satırı yok")
         for son in ("Context", "Kararlar"):
-            if not (sayfa.parent / f"{ad} {son}.md").is_file():
-                alan_eksik.append(f"{rel}: aynı klasörde {ad} {son}.md yok")
+            if cekirdek(sayfa.parent, ad, son) is None:
+                alan_eksik.append(f"{rel}: aynı klasörde {son}.md yok")
 
     # 5) Alan kapsamı: İŞ altındaki her klasör bir alana bağlı olmalı
     alan_klasorleri = {p.parent.resolve() for _, p in alanlar}
@@ -486,14 +573,17 @@ def yapi_taramasi() -> dict:
             coz = d.resolve()
             if coz in alan_klasorleri or any(coz.is_relative_to(a) for a in alan_klasorleri):
                 continue
-            # Hub sayfası: kendi `— Alan.md`'si yok ama alt alanları linkliyor.
+            # Hub sayfası: kendi `Alan.md`'si yok ama alt alanları linkliyor.
+            # Link hedefi sade ("Alan"), önekli ("<Ad> — Alan") ya da tam yollu
+            # ("İŞ/GÖRSEL ÜRETİM/Alan") olabilir; ölçüt hedefin son parçasının
+            # ilgili alanı işaret etmesi.
             hub = False
             for p in d.glob("*.md"):
                 try:
-                    icerik = _nfc(p.read_text(encoding="utf-8", errors="replace")).casefold()
+                    icerik = p.read_text(encoding="utf-8", errors="replace")
                 except OSError:
                     continue
-                if any(f"[[{_nfc(a).casefold()} — alan" in icerik for a, _ in alanlar):
+                if _icerik_alan_linkliyor_mu(icerik, alanlar):
                     hub = True
                     break
             if not hub:
@@ -504,14 +594,17 @@ def yapi_taramasi() -> dict:
     hub_dosya = projeler / "Projeler.md"
     if hub_dosya.is_file():
         try:
-            hub_metin = _nfc(hub_dosya.read_text(encoding="utf-8", errors="replace")).casefold()
+            hub_ham = hub_dosya.read_text(encoding="utf-8", errors="replace")
         except OSError:
-            hub_metin = ""
+            hub_ham = ""
+        hub_metin = _nfc(hub_ham).casefold()
         for d in sorted(x for x in projeler.iterdir() if x.is_dir() and not x.name.startswith(".")):
-            if f"[[{_nfc(d.name).casefold()} " not in hub_metin:
+            if f"[[{_nfc(d.name).casefold()} " not in hub_metin \
+                    and f"[[{_nfc(d.name).casefold()}/" not in hub_metin \
+                    and f"projeler/{_nfc(d.name).casefold()}/" not in hub_metin:
                 hub_eksik.append(f"PROJELER/Projeler.md: {_nfc(d.name)} projesi linklenmemiş")
         for ad, _ in alanlar:
-            if f"[[{_nfc(ad).casefold()} — alan" not in hub_metin:
+            if not _icerik_alan_linkliyor_mu(hub_ham, [(ad, None)]):
                 hub_eksik.append(f"PROJELER/Projeler.md: {ad} alanı linklenmemiş")
     elif projeler.is_dir():
         # PROJELER klasörü hiç yoksa (yeni kurulum) hub'ın da olmaması normaldir.
@@ -520,7 +613,6 @@ def yapi_taramasi() -> dict:
     return {
         "oksuz": oksuz,
         "proje_eksik": proje_eksik,
-        "proje_onek": proje_onek,
         "link_tek_yon": link_tek_yon,
         "alan_eksik": alan_eksik,
         "kapsam": kapsam,
@@ -531,7 +623,6 @@ def yapi_taramasi() -> dict:
 YAPI_ETIKET = [
     ("oksuz", "öksüz sayfa"),
     ("proje_eksik", "eksik proje çekirdeği"),
-    ("proje_onek", "önek uymayan dosya"),
     ("link_tek_yon", "tek yönlü link"),
     ("alan_eksik", "eksik alan dosyası"),
     ("kapsam", "kapsam dışı klasör"),

@@ -146,7 +146,7 @@ proj_root = Path('PROJELER')
 eksik, genel_sayfa = [], []
 for p in sorted(proj_root.iterdir()):
     if p.is_dir():
-        if not (p / f'{p.name} Context.md').exists(): eksik.append(p.name)
+        if not ((p / 'Context.md').exists() or (p / f'{p.name} Context.md').exists()): eksik.append(p.name)
     else:
         genel_sayfa.append(p.name)
 print('Context.md eksik proje:', eksik if eksik else 'yok')
@@ -161,10 +161,10 @@ print('kod kökünde brain/ kalıntısı:', kalinti if kalinti else 'yok')
 print('kontrol bitti')
 PYB
 ```
-🟢 bir haftadan yeni klon var, her projenin `PROJELER/<P>/` klasöründe `<P> Context.md` var,
-kod kökünde hiçbir projede `brain/` kalıntısı yok, `PROJELER/` kökünde klasör dışı yalnız genel
-sayfalar duruyor. 🟡 klon eski. 🔴 Context.md eksik veya kod kökünde `brain/` kalıntısı varsa:
-proje beyni eksik veya taşıma yarım kalmış demektir (kullanıcıya sor).
+🟢 bir haftadan yeni klon var, her projenin `PROJELER/<P>/` klasöründe `Context.md` (ya da eski
+önekli `<P> Context.md`) var, kod kökünde hiçbir projede `brain/` kalıntısı yok, `PROJELER/`
+kökünde klasör dışı yalnız genel sayfalar duruyor. 🟡 klon eski. 🔴 Context.md eksik veya kod
+kökünde `brain/` kalıntısı varsa: proje beyni eksik veya taşıma yarım kalmış demektir (kullanıcıya sor).
 
 ### 12. Eğitimler salt okunur mu, içindekiler var mı (yeni)
 

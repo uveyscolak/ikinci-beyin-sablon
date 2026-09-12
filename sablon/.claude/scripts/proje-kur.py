@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Yeni proje ya da yeni çalışma alanı kurulumu.
 
-Proje = kodu olan iş. Vault'ta PROJELER/<Ad>/ (sayfa, PRD, Kararlar, Context),
+Proje = kodu olan iş. Vault'ta PROJELER/<Ad>/ (Proje.md, PRD.md, Kararlar.md, Context.md),
 kod klasöründe git deposu + CLAUDE.md işaretçisi.
 Alan  = kodu olmayan çalışma alanı. Vault'ta verilen klasörün içine
-        <Ad> — Alan.md (tetik kelimeleriyle), <Ad> Context.md, <Ad> Kararlar.md.
+        Alan.md (tetik kelimeleriyle ve `ad:` frontmatter'ıyla), Context.md, Kararlar.md.
 
 Kullanım:
   python3 proje-kur.py --ad "Ad" [--amac "tek cümle"] [--klasor /yol] [--kod-yok] [--kuru]
@@ -48,7 +48,7 @@ Bu projenin kuralları burada tutulmuyor.
 **Proje beyni:** {VAULT}/PROJELER/{ad}/ — sayfa, yönerge (varsa), PRD, Kararlar, Context
 
 Claude her zaman {VAULT} klasöründen çalıştırılır. Bir projenin adı geçtiğinde o projenin
-yönergesi ve `{ad} Context.md` dosyası oturuma otomatik enjekte edilir.
+yönergesi ve `Context.md` dosyası oturuma otomatik enjekte edilir.
 
 Bu klasörde yalnız kod durur. `brain/` açılmaz; akıl vault'tadır.
 
@@ -60,7 +60,7 @@ def t_gitignore():
     return ".DS_Store\n.env\n.env.*\nbrain/\n"
 
 
-def t_sayfa(ad, amac, klasor):
+def t_sayfa(ad, amac, klasor, proje_rel):
     return f"""# {ad} — Proje
 
 **Ne:** {amac or '<tek cümle>'}
@@ -70,21 +70,21 @@ def t_sayfa(ad, amac, klasor):
 ## Nerede duruyor
 - **Kod:** {klasor or 'kod yok'}
 - **Git:** <url> — <özel | açık>
-- **Yönerge:** yok (gerekirse `{ad} Yönerge.md` açılır)
-- **Beyin:** [[{ad} PRD|PRD]] · [[{ad} Kararlar|Kararlar]] · [[{ad} Context|Context]]
+- **Yönerge:** yok (gerekirse `Yönerge.md` açılır)
+- **Beyin:** [[{proje_rel}/PRD|PRD]] · [[{proje_rel}/Kararlar|Kararlar]] · [[{proje_rel}/Context|Context]]
 
 ## Son bilinen hal
-Kuruldu ({BUGUN}). Canlı durum [[{ad} Context|Context]] sayfasında; bu sayfa onu tekrarlamaz.
+Kuruldu ({BUGUN}). Canlı durum [[{proje_rel}/Context|Context]] sayfasında; bu sayfa onu tekrarlamaz.
 
 ## Bağlantılar
 [[Projeler]]
 """
 
 
-def t_prd(ad, amac):
+def t_prd(ad, amac, proje_rel):
     return f"""# {ad} — PRD
 
-**Yazıldı:** {BUGUN} · **Mod:** <hızlı | tam> · **Bağlı:** [[{ad} Context|Context]]
+**Yazıldı:** {BUGUN} · **Mod:** <hızlı | tam> · **Bağlı:** [[{proje_rel}/Context|Context]]
 
 ## Problem
 {amac or '<Kullanıcının yaşadığı problem, onun gözünden.>'}
@@ -111,11 +111,11 @@ def t_prd(ad, amac):
 > Yalnız eklenir: `[YYYY-AA-GG] ne değişti — bkz. Kararlar [tarih]`.
 
 ---
-[[{ad} Context|Context]] — ana hub
+[[{proje_rel}/Context|Context]] — ana hub
 """
 
 
-def t_context(ad, klasor):
+def t_context(ad, klasor, proje_rel):
     return f"""# {ad} — Context
 
 **Durum:** 🟡 kurulum
@@ -129,15 +129,15 @@ def t_context(ad, klasor):
 1. PRD'yi sohbetle doldur (problem, kapsam, kabul kriterleri, kapsam dışı).
 
 ## Bitiş Çizgisi
-- [ ] <PRD kabul kriterlerinin özeti; detay [[{ad} PRD|PRD]].>
+- [ ] <PRD kabul kriterlerinin özeti; detay [[{proje_rel}/PRD|PRD]].>
 
 ## Açık Sorular
 - <Karara bağlanmamış şeyler, tarihiyle.>
 
 ## Alt Sayfalar
-- [[{ad} PRD|PRD]] — hedef, kapsam, kabul kriterleri
-- [[{ad} Kararlar|Kararlar]] — neden öyle yapıldığı
-- [[{ad} — Proje]] — projenin vault sayfası
+- [[{proje_rel}/PRD|PRD]] — hedef, kapsam, kabul kriterleri
+- [[{proje_rel}/Kararlar|Kararlar]] — neden öyle yapıldığı
+- [[{proje_rel}/Proje|Proje]] — projenin vault sayfası
 """
 
 
@@ -153,7 +153,7 @@ def t_kararlar(ad):
 
 
 def t_alan_sayfa(ad, amac, tetikler, klasor):
-    ust = "---\ntetik: [" + ", ".join(tetikler) + "]\n---\n" if tetikler else ""
+    ust = "---\ntetik: [" + ", ".join(tetikler) + f"]\nad: {ad}\n---\n" if tetikler else f"---\nad: {ad}\n---\n"
     return f"""{ust}# {ad} — Alan
 
 **Ne:** {amac or '<tek cümle>'}
@@ -162,8 +162,8 @@ def t_alan_sayfa(ad, amac, tetikler, klasor):
 
 ## Nerede duruyor
 - **Klasör:** {klasor}
-- **Yönerge:** yok (gerekirse `{ad} Yönerge.md` açılır)
-- **Beyin:** [[{ad} Kararlar|Kararlar]] · [[{ad} Context|Context]]
+- **Yönerge:** yok (gerekirse `Yönerge.md` açılır)
+- **Beyin:** [[{klasor}/Kararlar|Kararlar]] · [[{klasor}/Context|Context]]
 
 ## Tetik kelimeleri
 Yukarıdaki `tetik:` satırındaki kelimelerden biri sohbette geçtiğinde bu alanın yönergesi
@@ -171,7 +171,7 @@ ve Context'i oturuma otomatik yüklenir. Listeyi değiştirmek için o satırı 
 burada tekrarlama.
 
 ## Son bilinen hal
-Kuruldu ({BUGUN}). Canlı durum [[{ad} Context|Context]] sayfasında; bu sayfa onu tekrarlamaz.
+Kuruldu ({BUGUN}). Canlı durum [[{klasor}/Context|Context]] sayfasında; bu sayfa onu tekrarlamaz.
 
 ## Bağlantılar
 [[Projeler]]
@@ -198,8 +198,8 @@ def t_alan_context(ad, klasor):
 - <Karara bağlanmamış şeyler, tarihiyle.>
 
 ## Alt Sayfalar
-- [[{ad} Kararlar|Kararlar]] — neden öyle yapıldığı
-- [[{ad} — Alan]] — alanın vault sayfası
+- [[{klasor}/Kararlar|Kararlar]] — neden öyle yapıldığı
+- [[{klasor}/Alan|Alan]] — alanın vault sayfası
 """
 
 
@@ -331,11 +331,12 @@ def vault_kur(ad, amac, klasor, kuru):
     hedef = VAULT / "PROJELER" / ad
     if hedef.exists():
         sys.exit(f"HATA: {hedef} zaten var. Var olan projeyi yeniden kurma.")
+    proje_rel = f"PROJELER/{ad}"
     dosyalar = {
-        f"{ad} — Proje.md": t_sayfa(ad, amac, klasor),
-        f"{ad} PRD.md": t_prd(ad, amac),
-        f"{ad} Kararlar.md": t_kararlar(ad),
-        f"{ad} Context.md": t_context(ad, klasor),
+        "Proje.md": t_sayfa(ad, amac, klasor, proje_rel),
+        "PRD.md": t_prd(ad, amac, proje_rel),
+        "Kararlar.md": t_kararlar(ad),
+        "Context.md": t_context(ad, klasor, proje_rel),
     }
     print(f"  + {hedef.relative_to(VAULT)}/")
     for isim, icerik in dosyalar.items():
@@ -352,9 +353,9 @@ def alan_kur(ad, amac, tetikler, klasor_rel, kuru):
     except (ValueError, OSError):
         sys.exit(f"HATA: alan klasörü vault dışında: {klasor_rel}")
     dosyalar = {
-        f"{ad} — Alan.md": t_alan_sayfa(ad, amac, tetikler, klasor_rel),
-        f"{ad} Context.md": t_alan_context(ad, klasor_rel),
-        f"{ad} Kararlar.md": t_alan_kararlar(ad, klasor_rel),
+        "Alan.md": t_alan_sayfa(ad, amac, tetikler, klasor_rel),
+        "Context.md": t_alan_context(ad, klasor_rel),
+        "Kararlar.md": t_alan_kararlar(ad, klasor_rel),
     }
     print(f"  + {klasor_rel}/")
     for isim, icerik in dosyalar.items():

@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Kullanıcının istemi bir projeye ya da çalışma alanına değiniyorsa onun yönergesini
 ve güncel durumunu enjekte eder."""
+from __future__ import annotations
+
 import hashlib
 import json
 import os
@@ -18,6 +20,55 @@ ALAN_KOKLERI = ["İŞ", "KİŞİSEL"]
 ALAN_DERINLIK = 3
 EN_KISA_TETIK = 3
 ALAN_SONEK = " — Alan.md"
+RE_FRONTMATTER_AD = re.compile(r"^ad:\s*(.+)$", re.MULTILINE)
+
+
+def cekirdek(klasor, ad, tur):
+    """`Context`, `Kararlar`, `PRD`, `Yönerge`, `Proje`, `Alan` dosyasını bulur.
+    Önce sade ad (Context.md), yoksa eski önekli ad (<Ad> Context.md)."""
+    sade = klasor / f"{tur}.md"
+    if sade.is_file():
+        return sade
+    onekli = klasor / f"{ad} {tur}.md"
+    if onekli.is_file():
+        return onekli
+    if tur in ("Proje", "Alan"):
+        tireli = klasor / f"{ad} — {tur}.md"
+        if tireli.is_file():
+            return tireli
+    return None
+
+
+def alan_dosyasi_mi(isim):
+    return isim == "Alan.md" or isim.endswith(" — Alan.md")
+
+
+def alan_adi_oku(sayfa, ad_dosyadan):
+    """`Alan.md` ise frontmatter'daki `ad:` alanını okur; yoksa/eksikse dosyadan türetilen adı döner."""
+    if sayfa.name != "Alan.md":
+        return ad_dosyadan
+    try:
+        with sayfa.open("r", encoding="utf-8") as f:
+            bas = f.read(2048)
+    except OSError:
+        return ad_dosyadan
+    satirlar = bas.splitlines()
+    if not satirlar or satirlar[0].strip() != "---":
+        return ad_dosyadan
+    son = None
+    for i, satir in enumerate(satirlar[1:], 1):
+        if satir.strip() in ("---", "..."):
+            son = i
+            break
+    if son is None:
+        return ad_dosyadan
+    blok = "\n".join(satirlar[1:son])
+    eslesme = RE_FRONTMATTER_AD.search(blok)
+    if eslesme:
+        deger = eslesme.group(1).strip().strip("\"'").strip()
+        if deger:
+            return deger
+    return ad_dosyadan
 # BİLGİ katmanı: proje ya da alan enjekte edilirken indeksten ilgili kavram satırları
 BILGI_EN_FAZLA = 5
 BILGI_OZET = 120
@@ -173,16 +224,21 @@ def alanlari_bul(vault: Path, kokler: list[str]) -> list[tuple[str, Path]]:
                 altlar[:] = [a for a in altlar if not a.startswith(".")]
             for dosya in dosyalar:
                 isim = nfc(dosya)
-                if isim.endswith(ALAN_SONEK):
-                    bulunan.append((isim[: -len(ALAN_SONEK)], simdiki / dosya))
+                if alan_dosyasi_mi(isim):
+                    sayfa = simdiki / dosya
+                    if isim == "Alan.md":
+                        ad_dosyadan = simdiki.name
+                    else:
+                        ad_dosyadan = isim[: -len(ALAN_SONEK)]
+                    bulunan.append((alan_adi_oku(sayfa, ad_dosyadan), sayfa))
     bulunan.sort(key=lambda p: p[0])
     return bulunan
 
 
-def govde(baslik: str, konum: str, yonerge: Path, durum: Path, durum_adi: str,
+def govde(baslik: str, konum: str, yonerge: Path | None, durum: Path | None, durum_adi: str,
           yok_notu: str, ne: str, bilgi: str = "") -> str:
     bolum = [baslik, f"Klasör: {konum}"]
-    if yonerge.is_file():
+    if yonerge is not None and yonerge.is_file():
         try:
             bolum.append(
                 "\n--- Yönerge ---\n"
@@ -193,7 +249,7 @@ def govde(baslik: str, konum: str, yonerge: Path, durum: Path, durum_adi: str,
             pass
     else:
         bolum.append("\n" + yok_notu)
-    if durum.is_file():
+    if durum is not None and durum.is_file():
         try:
             bolum.append(
                 "\n--- " + durum_adi + f" ({ne} şu anki hâli) ---\n"
@@ -258,7 +314,7 @@ def main() -> int:
             if not d.is_dir() or d.name.startswith("."):
                 continue
             ad_nfc = nfc(d.name)
-            if (d / f"{ad_nfc} Context.md").is_file():
+            if cekirdek(d, ad_nfc, "Context") is not None:
                 adlar_kume.add(ad_nfc)
     adlar = sorted(adlar_kume)
 
@@ -313,10 +369,11 @@ def main() -> int:
     toplam = 0
     for ad in eslesen_proje:
         konum = str(projeler_kok / ad) if projeler_kok is not None else "kod klasörü yok"
+        proje_klasor = vault / "PROJELER" / ad
         metin = govde(
             f"[Proje: {ad}]", konum,
-            vault / "PROJELER" / ad / f"{ad} Yönerge.md",
-            vault / "PROJELER" / ad / f"{ad} Context.md",
+            cekirdek(proje_klasor, ad, "Yönerge"),
+            cekirdek(proje_klasor, ad, "Context"),
             f"{ad} Context.md",
             "Bu projenin özel yönergesi yok; CLAUDE.md'deki ortak çalışma düzeni geçerli.",
             "projenin",
@@ -331,8 +388,8 @@ def main() -> int:
         klasor = sayfa.parent
         metin = govde(
             f"[Alan: {ad}]", str(klasor),
-            klasor / f"{ad} Yönerge.md",
-            klasor / f"{ad} Context.md",
+            cekirdek(klasor, ad, "Yönerge"),
+            cekirdek(klasor, ad, "Context"),
             f"{ad} Context.md",
             "Bu alanın özel yönergesi yok; CLAUDE.md'deki ortak çalışma düzeni geçerli.",
             "alanın",

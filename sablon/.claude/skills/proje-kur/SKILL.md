@@ -25,17 +25,17 @@ Sırlar ikisinde de vault'a girmez, `GİZLİ/` altında durur.
    ```
    python3 .claude/scripts/proje-kur.py --ad "<Ad>" --amac "<tek cümle>" [--klasor <yol>] [--kod-yok]
    ```
-   Script şunları açar: `PROJELER/<Ad>/` altında `<Ad> — Proje.md`, `<Ad> PRD.md`, `<Ad> Kararlar.md`,
-   `<Ad> Context.md`; kod klasöründe `git init`, `.gitignore`, `CLAUDE.md` işaretçisi; `PROJELER/Projeler.md`
+   Script şunları açar: `PROJELER/<Ad>/` altında `Proje.md`, `PRD.md`, `Kararlar.md`,
+   `Context.md`; kod klasöründe `git init`, `.gitignore`, `CLAUDE.md` işaretçisi; `PROJELER/Projeler.md`
    hub tablosuna satır. Var olan koda dokunmaz. Vault klasörü zaten varsa durur. Dört dosyanın iskeleti
    script'in içindedir; ayrıca şablon kopyası tutulmaz.
 
 3. **PRD'yi sohbetle doldur.** Doğrudan koda başlama. Açık uçlu sor: problem kimin, çözüm ne, kapsam
-   dışı ne, "bitti" neye göre denecek. Cevapları `<Ad> PRD.md` içine yaz; ilk kararı `<Ad> Kararlar.md`
-   dosyasına tarihli ekle; `<Ad> Context.md` içindeki "Şu An Nerede" ve "Sıradaki Adım" bölümlerini
+   dışı ne, "bitti" neye göre denecek. Cevapları `PRD.md` içine yaz; ilk kararı `Kararlar.md`
+   dosyasına tarihli ekle; `Context.md` içindeki "Şu An Nerede" ve "Sıradaki Adım" bölümlerini
    güncelle. Hızlı modda (küçük araç) PRD tek ekran olabilir.
 
-4. **Yönerge yalnız gerekirse.** Projeye özel, tartışmaya kapalı kural doğduysa `PROJELER/<Ad>/<Ad> Yönerge.md`
+4. **Yönerge yalnız gerekirse.** Projeye özel, tartışmaya kapalı kural doğduysa `PROJELER/<Ad>/Yönerge.md`
    aç (şablon: `ASSETS/TEMPLATES/Yönerge.md` varsa ondan). Anayasadaki kuralı oraya kopyalama.
 
 5. **Bitirirken** kullanıcıya üç satırda söyle: kod nerede, beyin nerede, sıradaki adım ne.
@@ -58,12 +58,12 @@ Sırlar ikisinde de vault'a girmez, `GİZLİ/` altında durur.
    ```
    python3 .claude/scripts/proje-kur.py --alan "<klasör>" --ad "<Ad>" --amac "<tek cümle>" --tetik "a,b,c"
    ```
-   Script `<klasör>` içine `<Ad> — Alan.md` (tetik kelimeleri frontmatter'da), `<Ad> Context.md` ve
-   `<Ad> Kararlar.md` açar, `PROJELER/Projeler.md` içindeki `## Alanlar` tablosuna satır ekler.
+   Script `<klasör>` içine `Alan.md` (tetik kelimeleri ve `ad:` frontmatter'da), `Context.md` ve
+   `Kararlar.md` açar, `PROJELER/Projeler.md` içindeki `## Alanlar` tablosuna satır ekler.
    PRD ve kod klasörü yoktur. Var olan dosyanın üstüne yazmaz.
 
 4. **Context'i sohbetle doldur:** şu an nerede, sıradaki adım, bitiş çizgisi. Yönerge yalnız
-   alana özel, tartışmaya kapalı kural doğduysa `<klasör>/<Ad> Yönerge.md` olarak açılır.
+   alana özel, tartışmaya kapalı kural doğduysa `<klasör>/Yönerge.md` olarak açılır.
 
 5. **Deneyerek doğrula.** Tetik kelimelerinden birini içeren bir cümle kurulduğunda alan bir sonraki
    istemde yüklenmeli. Yüklenmiyorsa `tetik:` satırına bak.
@@ -74,10 +74,10 @@ Sırlar ikisinde de vault'a girmez, `GİZLİ/` altında durur.
 
 `proje-yonerge` kancası her istemde çalışır ve iki şeye bakar:
 
-- **Proje:** `PROJELER/` altındaki klasör adı istemde geçerse `<Ad> Yönerge.md` ve `<Ad> Context.md`
+- **Proje:** `PROJELER/` altındaki klasör adı istemde geçerse `Yönerge.md` ve `Context.md`
   enjekte edilir. Ekstra kayıt gerekmez.
 - **Alan:** alan kökleri (`beyin.json` içinde `alan_kokleri`, varsayılan `İŞ` ve `KİŞİSEL`) altında
-  en çok üç katman derinde `<Ad> — Alan.md` aranır; alan adı ya da frontmatter'daki tetik
-  kelimelerinden biri istemde geçerse aynı ikili enjekte edilir.
+  en çok üç katman derinde `Alan.md` (adı frontmatter'daki `ad:` alanından) aranır; alan adı ya da
+  frontmatter'daki tetik kelimelerinden biri istemde geçerse aynı ikili enjekte edilir.
 
 Bir istemde en çok üç kayıt (proje + alan) yüklenir ve aynı oturumda aynı kayıt bir kez yüklenir.

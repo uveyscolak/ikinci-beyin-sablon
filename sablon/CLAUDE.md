@@ -160,14 +160,36 @@ klasörüne girilmez.
 
 ### Proje klasörü — `PROJELER/<Proje>/`
 
-Her dosya proje adıyla başlar.
+Dosya adları sadedir, proje adı öne eklenmez. Klasör zaten hangi proje olduğunu söyler; adın
+başına proje adını yazmak kenar çubuğunda adları uzatır ve dar ekranda hepsi aynı görünür.
+Ayırt etme işi linkte çözülür, adda değil.
 
-- **`<Proje> — Proje.md`** — vitrin: ne, neden var, kod nerede, git durumu.
-- **`<Proje> Yönerge.md`** — yalnız o projeye özel, tartışmaya kapalı kurallar. Gerekmedikçe açılmaz.
-- **`<Proje> PRD.md` = HEDEF.** Donmuş spec: problem, kapsam, kabul kriterleri, kapsam dışı.
-- **`<Proje> Kararlar.md` = NEDEN.** Append-only: tarih, ne, neden, varsa "denedik olmadı".
-- **`<Proje> Context.md` = ŞU AN.** Durum, nerede kalındı, sıradaki adım, açık sorular.
-- Diğer notlar aynı klasörde, aynı önekle.
+- **`Proje.md`** — vitrin: ne, neden var, kod nerede, git durumu. Canlı durumu tekrarlamaz.
+- **`Yönerge.md`** — yalnız o projeye özel, tartışmaya kapalı kurallar. Gerekmedikçe açılmaz.
+- **`PRD.md` = HEDEF.** Kurulumda yazılan donmuş spec: problem, kapsam, kabul kriterleri,
+  kapsam dışı. Günlük iş buradan değil Context'ten yürür.
+- **`Kararlar.md` = NEDEN.** Append-only. Bir seçim yapıldığında tarih, ne, neden ve varsa
+  "denedik olmadı". Gerekçe yalnızca burada yaşar. Eskiyi silme, geçersiz kalsa bile tarihiyle dursun.
+- **`Context.md` = ŞU AN.** Projenin o anki hali: durum, nerede kalındı, sıradaki adım,
+  açık sorular, bitiş çizgisi. Gerekçeyi buraya kopyalama, karara link ver.
+- Diğer notlar (mimari, araştırma, roadmap) aynı klasörde, aynı sade adla.
+
+Alanlar da aynı düzeni kullanır: `Alan.md`, `Context.md`, `Kararlar.md`, gerekirse `Yönerge.md`.
+
+### Link yazımı — her zaman tam yol
+
+Vault'ta on yedi tane `Context.md` ve on yedi tane `Kararlar.md` vardır. Kısa link (`[[Kararlar]]`)
+bunlardan hangisine gideceğini bilemez; Obsidian birini seçer ama seçimi tesadüfidir ve yeni dosya
+eklendiğinde değişebilir. 2026-09-12'de iki ayrı `Kararlar.md` ile test edildi: kısa link ikisinden
+birine gitti, hangisine gideceği tahmin edilemedi.
+
+Bu yüzden **her link tam yolla yazılır, görünen metin kısa tutulur**:
+
+    [[İŞ/GÖRSEL ÜRETİM/Kararlar|Kararlar]]
+    [[PROJELER/Shopify/Context|Context]]
+
+Ekranda yalnız "Kararlar" görünür, hedef kesindir. Kısa link yalnız vault'ta tek örneği olan
+dosyalar için serbesttir (`[[Projeler]]`, `[[Minval Takı]]`).
 
 Genel sayfalar (`Projeler.md` hub'ı) `PROJELER/` kökünde kalır, alt klasöre inmez.
 
