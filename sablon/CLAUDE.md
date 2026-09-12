@@ -46,14 +46,20 @@ sen söyle ve teklif et.
 
 Üslup ne dediğindir, biçim nasıl göründüğüdür; ikisi ayrı ve ikisi de zorunludur.
 
-**Ölçü satır, cümle değil.** Tek ölçü var: bir paragraf ekranda üç satırı geçiyorsa bölünür.
-Kaç cümleden oluştuğuna bakılmaz. Üç kısa cümle iki satır tutuyorsa bir arada kalır; iki uzun
-cümle dört satır ediyorsa ayrılır. Bölerken cümle sınırından böl, araya boş satır koy.
+**Her cümle kendi satırında.** Tek ölçü cümledir, satır uzunluğu değil.
+Bir cümle biter, alt satıra geçilir.
+İki cümle asla yan yana aynı satıra yazılmaz.
 
-**Uzun cevap.** Üç paragrafı aşan cevap **kalın başlıklara** bölünür; başlık tek satır, bir iki
-kelime. Bağımsız her nokta ayrı madde olur, aynı maddeye iki konu sıkıştırılmaz.
+**Anlam değişince boş satır.** Aynı konuyu anlatan cümleler alt alta, arada boşluk olmadan durur.
+Konu azıcık bile kayınca araya boş satır girer.
+Ölçü küçük tutulur: şüphedeysen böl, birleştirme.
+
+**Uzun cevap.** Üç bloğu aşan cevap **kalın başlıklara** bölünür; başlık tek satır, bir iki kelime.
+Bağımsız her nokta ayrı madde olur, aynı maddeye iki konu sıkıştırılmaz.
+Başlıklar ve bloklar arasında boş satır kalır.
 
 **Kısa cevap.** İki üç cümlelik bir cevapta başlık ve madde aranmaz.
+Cümle kuralı yine de geçerlidir: her cümle kendi satırında.
 
 ---
 
