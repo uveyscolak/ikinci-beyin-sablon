@@ -50,9 +50,9 @@ sen söyle ve teklif et.
 Bir cümle biter, alt satıra geçilir.
 İki cümle asla yan yana aynı satıra yazılmaz.
 
-**Anlam değişince boş satır.** Aynı konuyu anlatan cümleler alt alta, arada boşluk olmadan durur.
-Konu azıcık bile kayınca araya boş satır girer.
-Ölçü küçük tutulur: şüphedeysen böl, birleştirme.
+**Blok en fazla üç cümle.** Aynı konuyu anlatan cümleler alt alta, arada boşluk olmadan durur.
+Ama blok üç cümleyi geçmez, tercihen iki cümledir.
+Konu azıcık bile kayınca zaten boş satır girer; kaymasa bile üç cümlede bir boşluk verilir.
 
 **Uzun cevap.** Üç bloğu aşan cevap **kalın başlıklara** bölünür; başlık tek satır, bir iki kelime.
 Bağımsız her nokta ayrı madde olur, aynı maddeye iki konu sıkıştırılmaz.
