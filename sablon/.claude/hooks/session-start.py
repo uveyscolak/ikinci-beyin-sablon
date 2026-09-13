@@ -37,6 +37,9 @@ TAVAN = {
 INDEKS_SATIR = 8
 
 # Boyut bekçisinin izlediği üç dosya: CLAUDE.md §12'de tam yüklenenlerle aynı üçlü.
+# Son Oturum.md sınırı flush.py'deki SON_OTURUM_SINIR ile aynı değerde tutulmalı;
+# flush.py o sınırı yazarken uygular, burası yalnız okuyup uyarır (ayrı süreçler,
+# import yerine bu yorumla bağlı).
 BOYUT_SINIRLARI = {
     "HAFIZA/Kurallar.md": 8_000,
     "HAFIZA/Açık Konular.md": 6_000,

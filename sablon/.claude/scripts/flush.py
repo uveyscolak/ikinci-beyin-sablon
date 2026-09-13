@@ -35,6 +35,9 @@ MAX_TRANSCRIPT_CHARS = 120_000
 STALE_HOOK_INPUT_SECONDS = 3_600
 SIGNATURE_TTL_SECONDS = 3 * 86_400
 SON_OTURUM_ONCEKI = 2
+# Boyut bekçisinin (.claude/hooks/session-start.py, BOYUT_SINIRLARI) izlediği tavanla
+# aynı değer olmalı; iki ayrı süreçte çalıştıkları için import yerine bu yorumla bağlı.
+SON_OTURUM_SINIR = 5_000
 
 EXPECTED_SECTIONS = (
     "Bağlam",
@@ -594,6 +597,65 @@ def _eski_son_oturum(path: Path) -> tuple[str, str, list[str]]:
     return baslik, ozet[:1500], onceki
 
 
+_SON_OTURUM_BASLIK = (
+    "# Son Oturum\n\n"
+    "*Bu dosyayı oturum sonunda makine yazar. Oturum içinde elle güncellersen makine o oturum için dokunmaz.*\n\n"
+)
+
+
+def _son_oturum_govde(
+    event_time: dt.datetime,
+    yer: str,
+    nerede: str,
+    kalan: list[str],
+    onceki: list[str],
+) -> str:
+    """Dosyanın tam gövdesini kurar ve SON_OTURUM_SINIR'a sığdırır.
+
+    Sırayla: önce "Önceki" bloklarından en eskiler atılır (en yeniden başlayarak
+    sığanlar kalır). "Önceki" boşalınca da sığmıyorsa "Özet" (kalan) sondan kırpılıp
+    "(kırpıldı)" notu düşülür. "Nerede kalındı" hiç kırpılmaz.
+    """
+    baslik_satiri = f"## Oturum: {event_time.strftime('%Y-%m-%d %H:%M')}{yer}\n\n"
+    nerede_blok = f"### Nerede kalındı\n{nerede}\n\n"
+
+    def gövde_kur(kalan_metin: str, onceki_liste: list[str]) -> str:
+        onceki_govde = "\n\n".join(onceki_liste) if onceki_liste else "(henüz yok)"
+        return (
+            _SON_OTURUM_BASLIK
+            + baslik_satiri
+            + nerede_blok
+            + "### Özet\n" + kalan_metin + "\n\n"
+            "## Önceki\n\n" + onceki_govde + "\n"
+        )
+
+    ozet_tam = "\n\n".join(kalan)
+
+    # 1) Hiç kırpmadan dene.
+    metin = gövde_kur(ozet_tam, onceki)
+    if len(metin) <= SON_OTURUM_SINIR:
+        return metin
+
+    # 2) "Önceki" bloklarını en eskiden başlayarak tek tek at, en yeniden başlayarak sığanı tut.
+    kalan_onceki = list(onceki)
+    while kalan_onceki:
+        kalan_onceki.pop()  # liste yeniden-eskiye sıralı; sondaki en eski
+        metin = gövde_kur(ozet_tam, kalan_onceki)
+        if len(metin) <= SON_OTURUM_SINIR:
+            return metin
+
+    # 3) "Önceki" tamamen boş, yine de sığmıyorsa Özet'i sondan kırp.
+    metin_bos_onceki = gövde_kur(ozet_tam, [])
+    asim = len(metin_bos_onceki) - SON_OTURUM_SINIR
+    if asim <= 0:
+        return metin_bos_onceki
+
+    not_ = "\n\n(kırpıldı)"
+    hedef_ozet_uzunluk = max(0, len(ozet_tam) - asim - len(not_))
+    ozet_kirpilmis = ozet_tam[:hedef_ozet_uzunluk].rstrip() + not_
+    return gövde_kur(ozet_kirpilmis, [])
+
+
 def _son_oturumu_yaz(
     vault_root: Path,
     state_dir: Path,
@@ -637,14 +699,7 @@ def _son_oturumu_yaz(
         if govde:
             kalan.append(f"#### {bolum}\n{govde}")
     yer = f" — {etiket}" if etiket else ""
-    yeni = (
-        "# Son Oturum\n\n"
-        "*Bu dosyayı oturum sonunda makine yazar. Oturum içinde elle güncellersen makine o oturum için dokunmaz.*\n\n"
-        f"## Oturum: {event_time.strftime('%Y-%m-%d %H:%M')}{yer}\n\n"
-        f"### Nerede kalındı\n{nerede}\n\n"
-        "### Özet\n" + "\n\n".join(kalan) + "\n\n"
-        "## Önceki\n\n" + ("\n\n".join(onceki) if onceki else "(henüz yok)") + "\n"
-    )
+    yeni = _son_oturum_govde(event_time, yer, nerede, kalan, onceki)
     if dry_run:
         print("--- Son Oturum (yazılmadı) ---")
         print(yeni)
