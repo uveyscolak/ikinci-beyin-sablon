@@ -4,15 +4,13 @@
 Her WİKİ klasörü olan eğitim için kökünde `00 İçindekiler.md` (modül, ders, tek satır özet,
 transkript var mı) ve `EĞİTİMLER/KAYNAKLAR/index.md` (eğitim listesi) yazar. Özet, sayfadaki
 "## Ne Öğretiyor" bölümünün ilk cümlesinden, yoksa sayfanın ilk paragrafından alınır; elle
-yazılmış değildir. Klasör salt okunur olduğu için yazmadan önce izni açar, `--kilitle` ile
-işin sonunda tamamını yeniden kilitler.
+yazılmış değildir.
 """
 from __future__ import annotations
 
 import json
 import os
 import re
-import stat
 import sys
 import unicodedata
 from pathlib import Path
@@ -31,7 +29,7 @@ def _ayar() -> dict:
 
 AYAR = _ayar()
 CIKTI_KLASORU = {unicodedata.normalize("NFC", k): v for k, v in (AYAR.get("egitim_ciktilari") or {}).items()}   # eğitim klasörü -> işe dönük çıktı dosyasının vault'a göreli yolu
-NOTLAR_DOSYASI = AYAR.get("notlar_dosyasi") or "NOTLARIM.md"  # kullanıcının kendi notu; kilitlenmez
+NOTLAR_DOSYASI = AYAR.get("notlar_dosyasi") or "NOTLARIM.md"  # kullanıcının kendi notu
 
 
 def nfc(s: str) -> str:
@@ -84,9 +82,6 @@ def ozet(metin: str) -> str:
 
 
 def yaz(path: Path, icerik: str) -> None:
-    for p in (path.parent, path):
-        if p.exists():
-            os.chmod(p, os.stat(p).st_mode | stat.S_IWUSR)
     path.write_text(icerik, encoding="utf-8")
 
 
@@ -124,13 +119,13 @@ def egitim_uret(wiki: Path) -> dict:
     satirlar += [
         f"{len(moduller)} modül, {len(sayfalar)} ders, {transkriptli} transkript. Özetler ders sayfasındaki",
         "\"Ne Öğretiyor\" bölümünden veya ilk paragraftan otomatik alındı; ders için sayfayı, asıl söz için",
-        "transkripti oku (`egitim` skill'i). Bu klasör salt okunurdur.",
+        "transkripti oku (`egitim` skill'i). Bu klasörün içeriği dokunulmaz orijinal kaynaktır, değiştirilmez.",
     ]
     if cikti:
         satirlar.append(f"İşe dönük çıktı: {cikti}")
     notlar = egitim / NOTLAR_DOSYASI
     if not notlar.exists():
-        yaz(notlar, f"# {notlar.stem}\n\nBu eğitime dair kendi notların. Ders sayfaları kilitli, bu dosya senindir.\n")
+        yaz(notlar, f"# {notlar.stem}\n\nBu eğitime dair kendi notların. Ders sayfaları dokunulmaz kaynaktır, bu dosya senindir.\n")
     satirlar.append(f"Kendi notların: [[{notlar.relative_to(VAULT).with_suffix('').as_posix()}\\|{notlar.stem}]] (yazılabilir).")
     satirlar += govde + ["", "---", "[[EĞİTİMLER/KAYNAKLAR/index\\|Eğitimler]]", ""]
     yaz(egitim / ICINDEKILER, "\n".join(satirlar))
@@ -142,7 +137,7 @@ def index_uret(bilgiler: list[dict]) -> None:
         "# Eğitimler — Satın alınan kaynaklar",
         "",
         "Her eğitim kendi klasöründe, `RAW/` (video, transkript, belge) ve `WİKİ/` (her ders bir sayfa) ile",
-        "durur; kökündeki `00 İçindekiler.md` dersleri tek satır özetle listeler. Klasör salt okunurdur.",
+        "durur; kökündeki `00 İçindekiler.md` dersleri tek satır özetle listeler. Klasörün içeriği dokunulmaz orijinal kaynaktır, değiştirilmez.",
         "Soru sormak, ders anlattırmak ve damıtmak için `egitim` skill'i. Bu sayfa",
         "`python3 .claude/scripts/egitim-icindekiler.py` ile üretilir; elle düzenleme.",
         "",
@@ -157,35 +152,14 @@ def index_uret(bilgiler: list[dict]) -> None:
     yaz(KOK / "index.md", "\n".join(satirlar))
 
 
-def kilitle() -> int:
-    n = 0
-    for p in KOK.rglob("*"):
-        try:
-            mode = os.stat(p, follow_symlinks=False).st_mode
-            if stat.S_ISLNK(mode):
-                continue
-            if p.name == NOTLAR_DOSYASI:
-                os.chmod(p, mode | stat.S_IWUSR)   # kullanıcının not dosyası açık kalır
-                continue
-            os.chmod(p, mode & ~(stat.S_IWUSR | stat.S_IWGRP | stat.S_IWOTH))
-            n += 1
-        except OSError:
-            pass
-    os.chmod(KOK, os.stat(KOK).st_mode & ~(stat.S_IWUSR | stat.S_IWGRP | stat.S_IWOTH))
-    return n
-
-
 def main() -> int:
     if not KOK.is_dir():
         print("KAYNAKLAR yok", file=sys.stderr)
         return 1
-    if "--sadece-kilitle" not in sys.argv:
-        bilgiler = [egitim_uret(w) for w in wiki_klasorleri()]
-        index_uret(bilgiler)
-        for b in bilgiler:
-            print(f"{b['ad']}: {b['modul']} modül, {b['ders']} ders, {b['transkript']} transkript")
-    if "--kilitle" in sys.argv or "--sadece-kilitle" in sys.argv:
-        print("kilitlendi:", kilitle(), "öğe")
+    bilgiler = [egitim_uret(w) for w in wiki_klasorleri()]
+    index_uret(bilgiler)
+    for b in bilgiler:
+        print(f"{b['ad']}: {b['modul']} modül, {b['ders']} ders, {b['transkript']} transkript")
     return 0
 
 

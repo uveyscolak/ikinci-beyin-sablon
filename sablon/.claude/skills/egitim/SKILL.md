@@ -29,7 +29,6 @@ eğitimleri listeler, her eğitimin kökündeki `00 İçindekiler.md` derslerini
 mevcut dosya varsa onu güncelle. Kaynağa link ver. Birebir korunması gerekeni özetleme.
 
 ## Bakım
-- Yeni eğitim eklenince: `chmod -R u+w "EĞİTİMLER/KAYNAKLAR"`, dosyaları koy,
-  `python3 .claude/scripts/egitim-icindekiler.py --kilitle`.
+- Yeni eğitim eklenince: dosyaları koy, `python3 .claude/scripts/egitim-icindekiler.py`.
 - Kullanıcının kendi notu eğitimin kökündeki not dosyasına (`.claude/beyin.json` içindeki
-  `notlar_dosyasi`, varsayılan `NOTLARIM.md`) yazılır; o dosya kilit dışındadır.
+  `notlar_dosyasi`, varsayılan `NOTLARIM.md`) yazılır.

@@ -141,13 +141,14 @@ değişkeninden oku.
 
 ## 7. Eğitimler
 
-`EĞİTİMLER/KAYNAKLAR/` satın alınan eğitimlerdir; salt okunur (ayar dosyasındaki deny kuralı ve
-dosya izni). Her eğitimin kökünde `00 İçindekiler.md`, listesi `EĞİTİMLER/KAYNAKLAR/index.md`
-(`python3 .claude/scripts/egitim-icindekiler.py --kilitle` üretir). Kullanıcının o eğitime dair
-notu eğitimin kökündeki not dosyasına (`.claude/beyin.json` içindeki `notlar_dosyasi`) yazılır;
-kilitli ders sayfalarında kırık wiki-link çıkarsa yalnız link hedefi onarılır (kilit aç, düzelt,
-kilit kapat, `--kilitle`), ders içeriği değişmez;
-o dosya kilit dışındadır. Eğitimden işe dönüşen çıkarım `İŞ/` altına yazılır.
+`EĞİTİMLER/KAYNAKLAR/` satın alınan eğitimlerdir; içeriği dokunulmaz orijinal kaynaktır. Koruma
+teknik kilitle değil kuralla sağlanır: ders sayfası, görsel ve transkript değiştirilmez, oraya
+kendiliğinden hiçbir şey yazılmaz, yalnız kullanıcı açıkça istediğinde iş yapılır. Her eğitimin
+kökünde `00 İçindekiler.md`, listesi `EĞİTİMLER/KAYNAKLAR/index.md`
+(`python3 .claude/scripts/egitim-icindekiler.py` üretir). Kullanıcının o eğitime dair notu
+eğitimin kökündeki not dosyasına (`.claude/beyin.json` içindeki `notlar_dosyasi`) yazılır; ders
+sayfalarında kırık wiki-link çıkarsa yalnız link hedefi onarılır, ders içeriği değişmez.
+Eğitimden işe dönüşen çıkarım `İŞ/` altına yazılır.
 
 ---
 

@@ -16,7 +16,6 @@ import datetime as dt
 import json
 import os
 import re
-import stat
 import subprocess
 import sys
 import time
@@ -205,7 +204,7 @@ def link_taramasi() -> dict:
         parcalar = _parcalar(rel)
         if not _taranir(parcalar):
             continue
-        # KAYNAKLAR salt okunur: kırıkları ayrı sayılır, düzeltilemez.
+        # KAYNAKLAR içeriği dokunulmaz orijinal kaynak: kırıkları ayrı sayılır.
         salt = parcalar[:2] == ("EĞİTİMLER", "KAYNAKLAR")
         try:
             ham = p.read_text(encoding="utf-8", errors="replace")
@@ -295,7 +294,7 @@ def linkler_raporu() -> str:
     satirlar = [
         f"Kırık wiki-link: {len(r['kirik'])}, ölü yol: {len(r['olu'])}, "
         f"etkilenen dosya: {len(gruplar)}",
-        f"EĞİTİMLER/KAYNAKLAR (salt okunur, düzeltilemez): {r['kaynak_kirik']} kırık link, "
+        f"EĞİTİMLER/KAYNAKLAR (dokunulmaz kaynak): {r['kaynak_kirik']} kırık link, "
         f"{r['kaynak_olu']} ölü yol",
         "",
     ]
@@ -857,23 +856,6 @@ def kontrol() -> dict:
     if len(bekleyen) > 150:
         sorunlar.append(f"{len(bekleyen)} dosya commit bekliyor; oturum sonu commit'i çalışmıyor olabilir.")
 
-    # 6) KAYNAKLAR kilidi
-    ayar = _ayar()
-    notlar = ayar.get("notlar_dosyasi") or "NOTLARIM.md"
-    kaynaklar = VAULT / "EĞİTİMLER" / "KAYNAKLAR"
-    if kaynaklar.is_dir():
-        acik = 0
-        for p in kaynaklar.rglob("*.md"):
-            if p.name in {notlar} or p.name == "index.md":
-                continue
-            try:
-                if p.stat().st_mode & stat.S_IWUSR:
-                    acik += 1
-            except OSError:
-                pass
-        if acik:
-            sorunlar.append(f"Eğitim kaynaklarında {acik} ders sayfası yazılabilir kalmış; kilit açık.")
-
     # 7) Vault geneli kırık wiki-link ve ölü düz metin yol (BİLGİ/kavramlar dahil)
     lt = link_taramasi()
     n_kirik, n_olu = len(lt["kirik"]), len(lt["olu"])
@@ -894,8 +876,8 @@ def kontrol() -> dict:
         )
     if lt["kaynak_kirik"] or lt["kaynak_olu"]:
         bilgi.append(
-            f"EĞİTİMLER/KAYNAKLAR salt okunur: {lt['kaynak_kirik']} kırık link, "
-            f"{lt['kaynak_olu']} ölü yol (düzeltilemez, bilgi)."
+            f"EĞİTİMLER/KAYNAKLAR (dokunulmaz kaynak): {lt['kaynak_kirik']} kırık link, "
+            f"{lt['kaynak_olu']} ölü yol (bilgi)."
         )
 
     # 7b) Yapısal sağlık (anayasanın çalışma düzeni kuralları)
@@ -949,7 +931,7 @@ def tablo(r: dict) -> str:
         for s in r["sorunlar"]:
             satirlar.append(f"| 🔴 | {s} |")
     else:
-        satirlar.append("| 🟢 | Son Oturum, derleme, push, tekrar, kilit ve linkler temiz |")
+        satirlar.append("| 🟢 | Son Oturum, derleme, push, tekrar ve linkler temiz |")
     for b in r.get("bilgi", []):
         satirlar.append(f"| 🟡 | {b} |")
     if r.get("yapi_temiz"):

@@ -166,13 +166,12 @@ PYB
 kökünde klasör dışı yalnız genel sayfalar duruyor. 🟡 klon eski. 🔴 Context.md eksik veya kod
 kökünde `brain/` kalıntısı varsa: proje beyni eksik veya taşıma yarım kalmış demektir (kullanıcıya sor).
 
-### 12. Eğitimler salt okunur mu, içindekiler var mı (yeni)
+### 12. Eğitimlerde içindekiler var mı (yeni)
 
 ```bash
-echo "yazilabilir dosya: $(find 'EĞİTİMLER/KAYNAKLAR' -type f -perm -u+w | wc -l | tr -d ' ')"; python3 -c "import unicodedata as u; from pathlib import Path; k=Path('EĞİTİMLER/KAYNAKLAR'); w=[d for d in k.rglob('*') if d.is_dir() and u.normalize('NFC',d.name).casefold()==u.normalize('NFC','WİKİ').casefold()]; print('icindekiler:', sum((d.parent/'00 İçindekiler.md').exists() for d in w), '/', len(w), 'egitim')"
+python3 -c "import unicodedata as u; from pathlib import Path; k=Path('EĞİTİMLER/KAYNAKLAR'); w=[d for d in k.rglob('*') if d.is_dir() and u.normalize('NFC',d.name).casefold()==u.normalize('NFC','WİKİ').casefold()]; print('icindekiler:', sum((d.parent/'00 İçindekiler.md').exists() for d in w), '/', len(w), 'egitim')"
 ```
-🟢 yazılabilir 0, her eğitimde içindekiler var. 🔴 yazılabilir dosya varsa kilit açık kalmış:
-`chmod -R a-w "EĞİTİMLER/KAYNAKLAR"`. İçindekiler eksikse `python3 .claude/scripts/egitim-icindekiler.py`.
+🟢 her eğitimde içindekiler var. 🔴 İçindekiler eksikse `python3 .claude/scripts/egitim-icindekiler.py`.
 
 ### 13. Sır kaçağı
 
