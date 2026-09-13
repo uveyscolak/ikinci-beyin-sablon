@@ -72,8 +72,13 @@ Paragraf kuralı yine de geçerlidir: her cümle ayrı paragraf.
 
 ## 3. Hafıza — kendiliğinden çalışır
 
-- **Oturum açılınca** kancalar son oturumu, açık konuları, kuralları, kural adaylarını, günceyi
-  ve bilgi indeksini konuşmanın içine koyar; hızlı sağlık kontrolü çalışır, sorun varsa söyler.
+- **Oturum açılınca** Kurallar, Açık Konular ve Son Oturum bu anayasanın parçası olarak tam
+  yüklenir (§12). Kanca yalnız o an üretilen bilgiyi basar: sağlık kontrolü, push bekleyen
+  depolar, kural ve çelişki adayları, bilgi indeksinin son sekiz satırı, bugünün günlük kuyruğu.
+  Kanca çıktısı 9.000 karakteri geçemez; geçerse kendisi kırpar ve uyarır. Sen bir yere "gidip
+  bakmazsın", metin zaten önündedir. **neden:** Claude Code 10.000 karakteri aşan kanca çıktısını
+  dosyaya atıp yalnız ilk 2.000 karakterini gösterir; kurallar bu yüzden bazı oturumlara hiç
+  ulaşmıyordu.
 - **Oturum kapanınca** kök `index.md` yeniden üretilir, konuşmanın özeti `GÜNLÜK/YYYY-AA-GG.md`
   dosyasına yazılır,
   `HAFIZA/Son Oturum.md` makine tarafından yenilenir, vault commit'lenip push'lanır.
@@ -83,19 +88,30 @@ Paragraf kuralı yine de geçerlidir: her cümle ayrı paragraf.
   `HAFIZA/Çelişki Adayları.md`'ye tek madde yazar; kullanıcı karar verir.
 - **Oturum açılışında** sağlık kontrolü (`saglik.py`) kırık link, ölü yol ve yapı kurallarını
   tarar, `BİLGİ/kavramlar/` makaleleri dahil; link verdiği nottan eski kalmış "bayat makale" varsa
-  söyler. Sorun bağlama düşer, sen teklif edersin.
+  söyler. Sorun bağlama düşer, sen teklif edersin. Aynı kontrol üç hafıza dosyasının boyutuna da
+  bakar (Kurallar, Açık Konular, Son Oturum); bir dosya kendi sınırını geçerse "sadeleştirme
+  zamanı" der, sen teklif edersin.
 - **Dışarıdan kaynak** (link, PDF, video) `kaynak` skill'iyle alınır: özeti bugünün günlüğüne
   düşer, akşam kavram makalesine dönüşür. Ham metin vault'a girmez, kaynak linkle işaret edilir.
 - **Haftada bir** kanca bakım zamanı geldiğini söyler; sen teklif edersin (`haftalik` skill'i).
 
 Kancalar globaldir: hangi klasörde çalışılırsa çalışılsın hafıza bu vault'a yazılır.
 
-Senin payın: `HAFIZA/Açık Konular.md` (açık hatlar), `HAFIZA/Günce.md` (önemli bir şey olduysa),
-`HAFIZA/Kurallar.md` (<AD> seni düzelttiğinde kural artı neden), `HAFIZA/Kural Adayları.md`
-(adayları sor; onaylananı Kurallar'a taşı, reddedileni sil), `HAFIZA/Çelişki Adayları.md`
-(derleyicinin bulduğu çelişkileri sor; doğruysa kararı işle, yanlışsa makaleyi düzelt, maddeyi
-sil). Son Oturum'u makine yazar; daha iyisini biliyorsan üstüne yaz. "Güncelleyeyim mi" diye
-sorma, doğrudan yap.
+Senin payın:
+
+- `HAFIZA/Açık Konular.md` — yalnız bekleyen iş, madde en fazla üç satır; kapananı
+  `HAFIZA/Arşiv/Açık Konular Arşivi.md` sonuna taşı, projenin durumunu kendi Context'ine yaz
+- `HAFIZA/Günce.md` — önemli bir şey olduysa kısa bir giriş
+- `HAFIZA/Kurallar.md` — <AD> seni düzelttiğinde aynı turda tek cümle kural yaz, nedeniyle:
+  davranışsa buraya, ilke ya da biçimse bu anayasaya. Mekanik bir kuralsa denetleyiciye de
+  satır ekle (§10)
+- `HAFIZA/Kural Adayları.md` — adayları sor; onaylananı Kurallar'a taşı, reddedileni sil
+- `HAFIZA/Çelişki Adayları.md` — derleyicinin bulduğu çelişkileri sor; doğruysa kararı işle,
+  yanlışsa makaleyi düzelt, maddeyi sil
+- `HAFIZA/Son Oturum.md` — makine yazar. Oturumun sonucunu ondan daha iyi biliyorsan üstüne
+  yaz; oturum içinde elle yazılmış dosyaya makine dokunmaz
+
+"Güncelleyeyim mi?" diye sorma, doğrudan yap.
 
 ---
 
@@ -248,6 +264,10 @@ kayıt yoktur. İsteğe bağlı: sistemin kendisi için de bir proje açılabili
   yönerge "çelişirse bu geçerlidir" diyemez; anayasa her zaman üsttedir.
 - Yıkıcı işlemden önce hedefe bak ve yedeğin olduğunu doğrula. Yedekler vault dışında durur
   (`beyin.json` içindeki `yedek`); vault'a yedek dosyası konmaz, git'e girer.
+- **Denetleyici kancalar.** `cevap-denetle.py` cevap bitmeden son mesajı tarar (dosya linki
+  biçimi), `dosya-denetle.py` vault'a yazılan `.md` dosyanın üst bilgi bloğuyla (`---`)
+  başlamadığına bakar; ihlalde cevap kullanıcıya gitmeden Claude'a geri döner. Yeni mekanik kural
+  doğunca bu iki script'e satır eklenir; kural yalnız yazılmakla değil denetlenmekle yaşar.
 - **Kod deposunda akıl bulunursa vault'a taşınır.** Karar, durum, araştırma, plan, devir notu
   `PROJELER/<Proje>/` altına önekli adla gider; repoda yalnız kod ve kodun belgesi kalır.
 - **Haiku hiçbir yerde kullanılmaz:** ajanlar, oturum özeti (`flush.py`), derleyici. En düşük seviye Sonnet.
@@ -289,4 +309,17 @@ oynarsın. Oturum özeti (`flush.py`) ve akşam derlemesi (`compile.py`) de Sonn
 Ajana verilen iş tek başına anlaşılır yazılır: hedef, dosyalar, kabul ölçütü, dönüş
 biçimi. Ajanın sonucu kullanıcıya ham gösterilmez. Tanımlar `.claude/agents/`; adsız ajanların
 varsayılan modeli Sonnet (`CLAUDE_CODE_SUBAGENT_MODEL`).
+
+---
+
+## 12. Her oturumda tam yüklenen hafıza
+
+Aşağıdaki üç dosya bu anayasanın parçası olarak her oturumda kırpılmadan yüklenir; kanca değil,
+Claude Code'un kendi dosya bağı mekanizması taşır, bağlam özetlense bile yeniden gelir.
+
+@HAFIZA/Kurallar.md
+
+@HAFIZA/Açık\ Konular.md
+
+@HAFIZA/Son\ Oturum.md
 

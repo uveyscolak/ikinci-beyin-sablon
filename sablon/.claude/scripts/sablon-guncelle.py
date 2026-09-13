@@ -21,6 +21,7 @@ VAULT = Path(__file__).resolve().parent.parent.parent
 DOSYALAR = [
     "hooks/lib.sh", "hooks/session-start.sh", "hooks/session-start.py", "hooks/prompt-counter.sh",
     "hooks/proje-yonerge.sh", "hooks/proje-yonerge.py", "hooks/pre-compact.sh", "hooks/session-end.sh",
+    "hooks/cevap-denetle.py", "hooks/cevap-denetle.sh", "hooks/dosya-denetle.py", "hooks/dosya-denetle.sh",
     "scripts/flush.py", "scripts/compile.py", "scripts/flush-catchup.py", "scripts/_gitcommit.py",
     "scripts/_portalock.py", "scripts/egitim-icindekiler.py", "scripts/saglik.py", "scripts/sablon-guncelle.py",
     "scripts/index-uret.py",

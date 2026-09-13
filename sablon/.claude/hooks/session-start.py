@@ -1,17 +1,20 @@
 #!/usr/bin/env python3
 """Oturum başı bağlamını kurar ve Claude Code kancasının beklediği JSON'u basar.
 
+Kurallar, Açık Konular ve Son Oturum artık CLAUDE.md §12'deki @ bağlarıyla tam ve
+kırpılmadan yüklenir; bu kanca onları basmaz. Kanca yalnız o an üretilen bilgiyi taşır:
+sağlık kontrolü, boyut bekçisi, push bekleyen depolar, kural ve çelişki adayları,
+bilgi indeksinin son satırları, bugünün günlük kuyruğu.
+
 Sıra ve ilke: en yeni bilgi önce gelir, kırpma her zaman eskiyi düşürür.
-- HAFIZA/Son Oturum.md: önce "### Nerede kalındı" bölümü, sonra gerisi.
-- HAFIZA/Açık Konular.md: açık başlıklar ve durum satırları.
-- HAFIZA/Kurallar.md: tamamı.
+- Beyin sağlığı ve boyut bekçisi: en önde.
+- Push/commit durumu.
 - HAFIZA/Kural Adayları.md: varsa, onay bekleyenler.
 - HAFIZA/Çelişki Adayları.md: varsa, derleyicinin bulduğu eski/yeni bilgi çatışmaları.
-- HAFIZA/Günce.md: son giriş.
 - BİLGİ/index.md: tablo, yeniden eskiye.
 - GÜNLÜK/<bugün>.md: kuyruk.
-Bölüm tavanları aşıldığında not düşülür; toplam tavan aşılırsa önce indeksin eski
-satırları, sonra günlük kuyruğu, sonra günce kırpılır.
+Bölüm tavanları aşıldığında not düşülür; toplam tavan (9.000) aşılırsa önce indeks
+satır sayısı, sonra günlük kuyruğu, sonra düz kesme uygulanır.
 """
 from __future__ import annotations
 
@@ -22,22 +25,23 @@ import subprocess
 import sys
 from pathlib import Path
 
-TOPLAM_TAVAN = 40_000
+TOPLAM_TAVAN = 9_000
 TAVAN = {
-    "son": 8_000,
-    # Kurallar oturum davranışını belirler; tavana dayanıp sonu sessizce kesilirse
-    # en yeni kurallar düşer. 8.000 dolmak üzereydi, 16.000'e çıkarıldı.
-    "kurallar": 16_000,
-    "konular": 3_000,
     "adaylar": 2_000,
     "celiskiler": 2_000,
-    "gunce": 1_500,
     "indeks": 14_000,
     "gunluk": 3_000,
 }
 # İndeksin tamamı açılışın en pahalı parçasıydı (43 satır, ~12 KB) ve nadiren okunuyordu.
 # Yalnız en yeni satırlar girer; gerisini `hatirla` skill'i dosyadan arar.
 INDEKS_SATIR = 8
+
+# Boyut bekçisinin izlediği üç dosya: CLAUDE.md §12'de tam yüklenenlerle aynı üçlü.
+BOYUT_SINIRLARI = {
+    "HAFIZA/Kurallar.md": 8_000,
+    "HAFIZA/Açık Konular.md": 6_000,
+    "HAFIZA/Son Oturum.md": 5_000,
+}
 
 
 def oku(path: Path) -> str:
@@ -55,47 +59,6 @@ def kirp(metin: str, tavan: int, ad: str) -> str:
     return metin[: tavan - len(not_) - 1].rstrip() + "\n" + not_
 
 
-def son_oturum(hafiza: Path) -> str:
-    metin = oku(hafiza / "Son Oturum.md")
-    if not metin:
-        return ""
-    satirlar = metin.splitlines()
-    basla = next((i for i, s in enumerate(satirlar) if s.startswith("## Oturum:")), None)
-    if basla is None:
-        return ""
-    bitir = next((i for i in range(basla + 1, len(satirlar)) if satirlar[i].startswith("## Önceki")), len(satirlar))
-    blok = satirlar[basla:bitir]
-    # "### Nerede kalındı" bölümünü öne al
-    n0 = next((i for i, s in enumerate(blok) if s.strip().lower().startswith("### nerede kalındı")), None)
-    if n0 is not None:
-        n1 = next((i for i in range(n0 + 1, len(blok)) if blok[i].startswith("### ")), len(blok))
-        nerede = blok[n0:n1]
-        geri = blok[:n0] + blok[n1:]
-        blok = [geri[0]] + nerede + [""] + geri[1:]
-    return "\n".join(blok)
-
-
-def acik_konular(hafiza: Path) -> str:
-    metin = oku(hafiza / "Açık Konular.md")
-    if not metin:
-        return ""
-    icinde = False
-    cikti = []
-    for s in metin.splitlines():
-        if s.startswith("## Açık"):
-            icinde = True
-            continue
-        if s.startswith("## Kapanmış"):
-            break
-        if icinde and (s.startswith("### ") or s.startswith("**Durum:**")):
-            cikti.append(s)
-    return "\n".join(cikti[:60])
-
-
-def kurallar(hafiza: Path) -> str:
-    return oku(hafiza / "Kurallar.md")
-
-
 def kural_adaylari(hafiza: Path) -> str:
     metin = oku(hafiza / "Kural Adayları.md")
     maddeler = [s for s in metin.splitlines() if s.lstrip().startswith("- ")]
@@ -106,18 +69,6 @@ def celiski_adaylari(hafiza: Path) -> str:
     metin = oku(hafiza / "Çelişki Adayları.md")
     maddeler = [s for s in metin.splitlines() if s.lstrip().startswith("- ")]
     return "\n".join(maddeler)
-
-
-def gunce(hafiza: Path) -> str:
-    metin = oku(hafiza / "Günce.md")
-    satirlar = metin.splitlines()
-    basla = None
-    for i, s in enumerate(satirlar):
-        if s.startswith("## "):
-            basla = i
-    if basla is None:
-        return ""
-    return "\n".join(satirlar[basla : basla + 12])
 
 
 def indeks_parcala(vault: Path) -> tuple[str, list[str]]:
@@ -181,6 +132,18 @@ def saglik(vault: Path) -> str:
     return "\n".join(parca)
 
 
+def boyut_bekcisi(vault: Path) -> str:
+    """CLAUDE.md §12'de tam yüklenen üç dosyanın boyutunu izler; sınır aşılırsa uyarır."""
+    parca = []
+    for ad, sinir in BOYUT_SINIRLARI.items():
+        n = len(oku(vault / ad))
+        if n > sinir:
+            parca.append(f"- {ad}: {n:,} karakter (sınır {sinir:,}) — sadeleştirme zamanı, kullanıcıya teklif et.".replace(",", "."))
+    if not parca:
+        return ""
+    return "\n".join(parca)
+
+
 def push_bekleyen(vault: Path) -> str:
     """Kod depolarında push bekleyen commit ve commit bekleyen değişiklik taraması.
 
@@ -237,43 +200,30 @@ def kur(vault: Path) -> str:
     s = saglik(vault)
     if s:
         bolumler.append(("[Beyin sağlığı — otomatik kontrol]", s))
+    b = boyut_bekcisi(vault)
+    if b:
+        bolumler.append(("[Boyut bekçisi]", b))
     p = push_bekleyen(vault)
     if p:
         bolumler.append(("[Kod depoları — push ve commit durumu]", p))
-    son = kirp(son_oturum(hafiza), TAVAN["son"], "son oturum")
-    if son:
-        bolumler.append(("[Hafıza: Son Oturum]", son))
-    konular = kirp(acik_konular(hafiza), TAVAN["konular"], "açık konular")
-    if konular:
-        bolumler.append(("[Hafıza: Açık Konular]", konular))
-    kural = kirp(kurallar(hafiza), TAVAN["kurallar"], "kurallar")
-    if kural:
-        bolumler.append(("[Hafıza: Kurallar]", kural))
     aday = kirp(kural_adaylari(hafiza), TAVAN["adaylar"], "kural adayları")
     if aday:
         bolumler.append((f"[Hafıza: Kural Adayları — derleyici çıkardı, {kullanici} onaylarsa Kurallar'a geçer]", aday))
     celiski = kirp(celiski_adaylari(hafiza), TAVAN["celiskiler"], "çelişki adayları")
     if celiski:
         bolumler.append((f"[Hafıza: Çelişki Adayları — derleyici buldu, makaledeki eski bilgi ile günlükteki yeni bilgi çatışıyor; {kullanici} karar verir]", celiski))
-    g = kirp(gunce(hafiza), TAVAN["gunce"], "günce")
-    if g:
-        bolumler.append(("[Hafıza: Günce, son giriş]", g))
 
     baslik, satirlar = indeks_parcala(vault)
     gun = kirp(gunluk(vault), TAVAN["gunluk"], "günlük")
 
     kapanis = (
-        f"[Hafıza] Süreklilik senin sorumluluğun. Hafıza klasörü: {vault}/HAFIZA\n"
-        "Başka bir klasörde çalışıyor olsan bile hafıza dosyaları HER ZAMAN bu mutlak yoldadır.\n"
-        "Son Oturum'u oturum sonunda makine yazar; sen daha iyisini biliyorsan üstüne yaz.\n"
-        "Açık Konular, Kurallar ve Günce senindir: sormadan güncelle. Hafıza protokolü zorunludur."
+        "[Hafıza] Kurallar, Açık Konular ve Son Oturum bu anayasanın parçası olarak zaten tam yüklü (CLAUDE.md §12); "
+        "üstlerine sormadan güncellemek senin sorumluluğun."
     )
 
-    def birlestir(indeks_satir: int, gun_metni: str, gunce_dahil: bool) -> str:
+    def birlestir(indeks_satir: int, gun_metni: str) -> str:
         parca = []
         for etiket, metin in bolumler:
-            if not gunce_dahil and etiket.startswith("[Hafıza: Günce"):
-                continue
             parca.append(f"{etiket}\n{metin}\n")
         if baslik and indeks_satir > 0:
             secilen = satirlar[:indeks_satir]
@@ -292,16 +242,19 @@ def kur(vault: Path) -> str:
     n = min(INDEKS_SATIR, len(satirlar))
     while n > 0 and len("\n".join(satirlar[:n])) > TAVAN["indeks"]:
         n -= 1
-    metin = birlestir(n, gun, True)
+    metin = birlestir(n, gun)
     while len(metin) > TOPLAM_TAVAN and n > 0:
         n -= 5 if n > 5 else 1
-        metin = birlestir(n, gun, True)
+        metin = birlestir(n, gun)
     if len(metin) > TOPLAM_TAVAN:
-        metin = birlestir(n, "", True)
+        metin = birlestir(n, "")
     if len(metin) > TOPLAM_TAVAN:
-        metin = birlestir(n, "", False)
-    if len(metin) > TOPLAM_TAVAN:
-        metin = metin[: TOPLAM_TAVAN - 80] + "\n[not: bağlam 40.000 karakter tavanında kesildi, beyin doktor çalıştır]"
+        not_ = "\n[not: kanca çıktısı 9.000 karakter tavanında kesildi; beyin doktor çalıştır]"
+        metin = metin[: TOPLAM_TAVAN - len(not_) - 40] + not_
+    # Son satırın kendi uzunluğu toplam hesaba katılır; yaklaşık değer yeterli (kapanış tek kez eklenir).
+    kuyruk_sablon = "\n[Kanca çıktısı: {} karakter; tavan 9.000]"
+    tahmini_toplam = len(metin) + len(kuyruk_sablon.format("00.000"))
+    metin = metin + kuyruk_sablon.format(f"{tahmini_toplam:,}".replace(",", "."))
     return metin
 
 

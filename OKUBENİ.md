@@ -103,7 +103,7 @@ Vault/
 
 | Olay | Ne yapar |
 | --- | --- |
-| Oturum açılışı | Hızlı sağlık kontrolü; Son Oturum'un "Nerede kalındı" bölümü, açık konular, kuralların tamamı, kural adayları, `HAFIZA/Çelişki Adayları.md` (varsa), güncenin son girişi, bilgi indeksinin son sekiz satırı (yeniden eskiye) ve bugünün günlük kuyruğu bağlama girer. Kaçan oturumlar ve gecikmiş derleme arka planda tamamlanır. |
+| Oturum açılışı | Hızlı sağlık kontrolü; kural adayları, `HAFIZA/Çelişki Adayları.md` (varsa), güncenin son girişi, bilgi indeksinin son sekiz satırı (yeniden eskiye) ve bugünün günlük kuyruğu bağlama girer. Kurallar, Açık Konular ve Son Oturum kancayla değil `CLAUDE.md`'nin kendi dosya bağıyla (§12, aşağıda) yüklenir. Kaçan oturumlar ve gecikmiş derleme arka planda tamamlanır. |
 | Her mesaj | Proje adı geçince o projenin `PROJELER/<Proje>/` klasöründeki yönerge ve Context gelir (oturumda bir kez); aynı blokta `BİLGİ/` içindeki ilgili kavram makaleleri de listelenir (en fazla beş, en yenisi önce). 15 mesajda bir hatırlatma. |
 | Sıkıştırma öncesi | Bağlam dolmadan özet alınır. |
 | Oturum kapanışı | Vault commit'lenir, konuşma Sonnet ile beş başlıkla özetlenir (`GÜNLÜK/`), `HAFIZA/Son Oturum.md` yenilenir, push gider. 18'den sonraysa derleyici çalışır. |
@@ -114,7 +114,27 @@ wiki-link ve ölü düz metin yollarını dosya başına listeler; `--yapi` öks
 
 Bir makale link verdiği vault notundan bir gün eskiyse "bayat makale" sayılır ve oturum açılışında
 tek satır uyarı düşer. `--yaz` sonucu kancanın okuduğu durum dosyasına yazar; `--bakim-yapildi`
-haftalık bakımın tarihini kaydeder.
+haftalık bakımın tarihini kaydeder. Aynı kontrol üç hafıza dosyasının boyutunu da izler; biri
+kendi sınırını geçerse "sadeleştirme zamanı" der.
+
+**Hafıza neden anayasadan yüklenir.** Claude Code, bir kancanın bastığı çıktı 10.000 karakteri
+geçerse çıktıyı dosyaya atar ve konuşmaya yalnız ilk 2.000 karakterini gösterir; kalanı sessizce
+kaybolur. `HAFIZA/Kurallar.md`, `HAFIZA/Açık Konular.md` ve `HAFIZA/Son Oturum.md` eskiden
+oturum açılışı kancasıyla basılıyordu ve büyüdükçe bu tavana takılıp bir kısmı hiç görünmüyordu.
+Çözüm: bu üç dosya artık kancadan değil, `CLAUDE.md`'nin sonundaki üç `@HAFIZA/...` bağıyla
+yüklenir (bkz. `sablon/CLAUDE.md` §12); bu Claude Code'un kendi dosya bağı mekanizmasıdır, kanca
+çıktısı sayılmaz ve 10.000 karakter tavanına takılmaz. Boşluklu dosya adları bağda ters eğik
+çizgiyle yazılır (`@HAFIZA/Açık\ Konular.md`), tırnak işareti çalışmaz. Kancanın kendisi 9.000
+karakter tavanına ayarlıdır; aşarsa kendi kendini kırpıp uyarır, böylece geri kalan bilgi de
+kaybolmaz.
+
+**İki denetleyici kanca.** `cevap-denetle.py` (Stop) Claude'un cevabı kullanıcıya gitmeden hemen
+önce son mesajı tarar; şimdilik dosya linki biçimini kontrol eder. `dosya-denetle.py`
+(PostToolUse, `Write|Edit|MultiEdit`) vault'a yazılan her `.md` dosyasının YAML üst bilgi
+bloğuyla (`---`) başlamadığını denetler; `tetik:` satırı geçen Alan sayfaları bu kuraldan
+muaftır. İkisi de ihlal bulursa cevabı veya yazma işlemini Claude'a geri döndürür, kullanıcı
+hiç görmez. Amaç: mekanik bir kural yalnız `CLAUDE.md`'ye yazılmakla değil, her seferinde
+otomatik denetlenmekle kalıcı olur.
 
 **Derleyici** akşam 18'den sonraki ilk kapanışta çalışır: bilgi klasörünün kopyasını vault
 dışında bir kum havuzuna alır, Sonnet'e günün logunu verir, çıkan makaleleri beyaz listeden

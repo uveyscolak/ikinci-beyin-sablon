@@ -11,6 +11,10 @@
     "PreCompact": [{"hooks": [{"type": "command", "timeout": 10,
       "command": "[ -x \"<VAULT>/.claude/hooks/pre-compact.sh\" ] || exit 0; exec \"<VAULT>/.claude/hooks/pre-compact.sh\""}]}],
     "SessionEnd": [{"hooks": [{"type": "command", "timeout": 10,
-      "command": "[ -x \"<VAULT>/.claude/hooks/session-end.sh\" ] || exit 0; exec \"<VAULT>/.claude/hooks/session-end.sh\""}]}]
+      "command": "[ -x \"<VAULT>/.claude/hooks/session-end.sh\" ] || exit 0; exec \"<VAULT>/.claude/hooks/session-end.sh\""}]}],
+    "Stop": [{"hooks": [{"type": "command", "timeout": 10,
+      "command": "[ -x \"<VAULT>/.claude/hooks/cevap-denetle.sh\" ] || exit 0; exec \"<VAULT>/.claude/hooks/cevap-denetle.sh\""}]}],
+    "PostToolUse": [{"matcher": "Write|Edit|MultiEdit", "hooks": [{"type": "command", "timeout": 10,
+      "command": "[ -x \"<VAULT>/.claude/hooks/dosya-denetle.sh\" ] || exit 0; exec \"<VAULT>/.claude/hooks/dosya-denetle.sh\""}]}]
   }
 }
