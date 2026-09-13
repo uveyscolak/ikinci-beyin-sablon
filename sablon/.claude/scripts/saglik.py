@@ -877,13 +877,21 @@ def kontrol() -> dict:
     # 7) Vault geneli kırık wiki-link ve ölü düz metin yol (BİLGİ/kavramlar dahil)
     lt = link_taramasi()
     n_kirik, n_olu = len(lt["kirik"]), len(lt["olu"])
-    if n_kirik or n_olu:
+    if n_kirik:
+        # Kırık wiki-link gerçek sorundur: Obsidian'da tıklanınca hiçbir yere gitmez.
         sorunlar.append(
-            f"Vault'ta {n_kirik} kırık wiki-link ve {n_olu} ölü düz metin yol var; "
-            "taşımadan kalmış olabilir. Tam liste: python3 .claude/scripts/saglik.py --linkler"
+            f"Vault'ta {n_kirik} kırık wiki-link var; taşımadan kalmış olabilir. "
+            "Tam liste: python3 .claude/scripts/saglik.py --linkler"
         )
         for f, c in lt["en_cok"]:
             bilgi.append(f"En çok kırık taşıyan: {f} ({c})")
+    if n_olu:
+        # Ölü düz metin yol çoğunlukla Kararlar dosyalarındaki tarihli geçmiş kaydıdır
+        # ("şu klasör şuraya taşındı"); olduğu gibi kalması doğrudur, bu yüzden yalnız bilgi.
+        bilgi.append(
+            f"{n_olu} ölü düz metin yol var (çoğu Kararlar dosyalarındaki tarihli kayıt). "
+            "Liste: python3 .claude/scripts/saglik.py --linkler"
+        )
     if lt["kaynak_kirik"] or lt["kaynak_olu"]:
         bilgi.append(
             f"EĞİTİMLER/KAYNAKLAR salt okunur: {lt['kaynak_kirik']} kırık link, "
