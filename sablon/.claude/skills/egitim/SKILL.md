@@ -1,16 +1,22 @@
 ---
 name: egitim
-description: Satın alınan eğitimlerden (EĞİTİMLER/KAYNAKLAR) soru cevaplama, ders anlatma ve işe dönük damıtma. "eğitim sor", "... eğitiminde ne anlatılıyor", "beni ... konusunda eğit", "ders anlat", "sınav yap", "damıt", "playbook çıkar" dendiğinde kullan.
+description: Satın alınan eğitimlerden (EĞİTİMLER/KAYNAKLAR) ve YouTube Vault listesinden gelen video notlarından (EĞİTİMLER/YOUTUBE) soru cevaplama, ders anlatma ve işe dönük damıtma. "eğitim sor", "... eğitiminde ne anlatılıyor", "beni ... konusunda eğit", "ders anlat", "sınav yap", "damıt", "playbook çıkar" dendiğinde kullan.
 ---
 # Eğitim
 
 Kaynak: `EĞİTİMLER/KAYNAKLAR/`. Salt okunurdur; oraya yazma. Giriş: `EĞİTİMLER/KAYNAKLAR/index.md`
 eğitimleri listeler, her eğitimin kökündeki `00 İçindekiler.md` derslerini tek satır özetle verir.
 
+İkinci kaynak: `EĞİTİMLER/YOUTUBE/`. Kullanıcının YouTube Vault listesine attığı videolar; her videonun
+notu klasör kökünde (`<Kanal> — <Başlık>.md`), ham transkripti notun altındaki `## Transkript`
+linkinde (`RAW/`). Giriş: `EĞİTİMLER/YOUTUBE/00 İçindekiler.md`. Soru eğitimle ilgiliyse iki
+kaynağa da bak; kaynak linkinde hangisinden geldiğini belli et. YouTube notlarını Sonnet yazar ve
+şef kontrol eder; başlığında "kontrol bekliyor" duruyorsa bilgiyi transkriptten doğrula.
+
 Üç mod var. Kullanıcı hangisini istediğini söylemediyse sor; "sor" varsayılandır.
 
 ## Sor
-1. `EĞİTİMLER/KAYNAKLAR/index.md` ile eğitimi seç; birden fazla eğitim ilgiliyse hepsine bak.
+1. `EĞİTİMLER/KAYNAKLAR/index.md` ve `EĞİTİMLER/YOUTUBE/00 İçindekiler.md` ile kaynağı seç; birden fazla ilgiliyse hepsine bak.
 2. O eğitimin `00 İçindekiler.md` dosyasından dersleri seç (en fazla 5).
 3. Ders sayfasını oku. Sayfada `## Transkript` linki varsa transkripti de oku; asıl söz orada.
 4. Cevabı kaynak linkiyle ver: her iddianın yanına `[[ders sayfası]]`. Eğitmen ne dediyse onu

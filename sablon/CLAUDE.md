@@ -93,6 +93,15 @@ Paragraf kuralı yine de geçerlidir: her cümle ayrı paragraf.
   zamanı" der, sen teklif edersin.
 - **Dışarıdan kaynak** (link, PDF, video) `kaynak` skill'iyle alınır: özeti bugünün günlüğüne
   düşer, akşam kavram makalesine dönüşür. Ham metin vault'a girmez, kaynak linkle işaret edilir.
+- **YouTube eğitim kapısı.** Kullanıcı bir videoyu YouTube'da herkese açık bir oynatma listesine
+  atar, başka bir şey yapmaz. Açılış kancası arka planda listeye bakar (`youtube-izle.py`; YouTube
+  liste değişince haber vermez, tek yol açılışta bakmaktır), yeni videonun transkriptini çıkarır
+  (önce YouTube altyazısı, yoksa mlx-whisper), notu Sonnet'e yazdırır, özeti günlüğe `### Kaynak`
+  bloğu olarak düşürür. Not ve ham transkript `EĞİTİMLER/YOUTUBE/` altında kalır; satın alınan
+  eğitimlerle aynı düzen, `egitim` skill'i ikisini de arar. Sonnet'in her notunu şef bir kez okur,
+  hatayı düzeltir, sonra `EĞİTİMLER/YOUTUBE/KUYRUK.md`'deki maddeyi siler; kanca kuyruğu açılışta
+  önüne koyar. Tek seferlik makale ve haber bu kapıdan değil `kaynak` skill'inden girer. Liste
+  adresi `beyin.json` → `youtube.liste`.
 - **Haftada bir** kanca bakım zamanı geldiğini söyler; sen teklif edersin (`haftalik` skill'i).
 
 Kancalar globaldir: hangi klasörde çalışılırsa çalışılsın hafıza bu vault'a yazılır.
@@ -132,6 +141,7 @@ değişkeninden oku.
 | `BİLGİ/` | Derlenmiş kavramlar | Makine |
 | `GİZLİ/` | Anahtarlar ve erişim bilgileri | <AD> |
 | `EĞİTİMLER/KAYNAKLAR/` | Satın alınan eğitimler | Salt okunur |
+| `EĞİTİMLER/YOUTUBE/` | Oynatma listesinden gelen video notları ve `RAW/` transkriptleri | Makine ve sen |
 | `EĞİTİMLER/KENDİ NOTLARIM/` | Kendi eğitim notları | İkiniz |
 | `İŞ/` | İş notları, playbook'lar, iş alanları | İkiniz |
 | `KİŞİSEL/` | Kimlik, kişisel notlar, kişisel alanlar | <AD> |
@@ -165,6 +175,10 @@ kökünde `00 İçindekiler.md`, listesi `EĞİTİMLER/KAYNAKLAR/index.md`
 eğitimin kökündeki not dosyasına (`.claude/beyin.json` içindeki `notlar_dosyasi`) yazılır; ders
 sayfalarında kırık wiki-link çıkarsa yalnız link hedefi onarılır, ders içeriği değişmez.
 Eğitimden işe dönüşen çıkarım `İŞ/` altına yazılır.
+
+`EĞİTİMLER/YOUTUBE/` oynatma listesinden gelen videolardır (§3'teki kapı doldurur): not klasör
+kökünde (`<Kanal> — <Başlık>.md`), ham transkript `RAW/` altında, listesi `00 İçindekiler.md`.
+Not Sonnet'indir, şef kontrolünden geçer; düzeltmek serbesttir.
 
 ---
 

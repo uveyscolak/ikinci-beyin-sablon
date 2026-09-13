@@ -193,6 +193,39 @@ def push_bekleyen(vault: Path) -> str:
     return "\n".join(parca)
 
 
+def youtube_kuyruk(vault: Path) -> str:
+    """EĞİTİMLER/YOUTUBE/KUYRUK.md: Sonnet'in notunu yazdığı, şef kontrolü bekleyen videolar.
+
+    youtube-izle.py listeyi arka planda izler, transkripti çıkarır, notu Sonnet'e yazdırır.
+    Şef her notu bir kez okur (alt ajan çıktısı gibi), hatayı düzeltir, maddeyi siler.
+    Ayrıca izleyicinin son çalışması hata verdiyse burada görünür; sessiz kalmaz.
+    """
+    parca: list[str] = []
+    try:
+        durum = json.loads((vault / ".claude" / "scripts" / ".state" / "youtube-durum.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        durum = {}
+    if durum.get("hata"):
+        parca.append(f"- izleyici son çalışmada ({durum.get('son', '?')}) hata verdi: {durum['hata']}")
+    if durum.get("bekleyen"):
+        parca.append(f"- listede {durum['bekleyen']} video daha sırada, sonraki açılışta işlenecek")
+    metin = oku(vault / "EĞİTİMLER" / "YOUTUBE" / "KUYRUK.md")
+    maddeler = [s for s in metin.splitlines() if s.lstrip().startswith("- ")]
+    if maddeler:
+        parca.extend(maddeler[:5])
+        if len(maddeler) > 5:
+            parca.append(f"  ... ve {len(maddeler) - 5} video daha (EĞİTİMLER/YOUTUBE/KUYRUK.md)")
+        parca.append(
+            "Bunlar YouTube 'Vault' listesinden düşen videolar. 'kontrol bekliyor' olanların notunu Sonnet yazdı: "
+            "`denetci` ajanına notu ham transkriptle karşılaştırt (uydurma iddia, yanlış rakam, kırık link, yanlış alan), "
+            "bulguya göre düzelt, notun kaynak satırındaki 'Notu Sonnet yazdı, kontrol bekliyor' ibaresini 'Notu Sonnet yazdı, şef kontrol etti <tarih>' yap, kullanıcıya tek cümleyle 'X notu hazır, kontrol ettim' de, maddeyi KUYRUK.md'den sil. "
+            "'NOT YAZILAMADI' olanların notunu transkriptten sen yaz (kalıp: mevcut YouTube notları)."
+        )
+    if not parca:
+        return ""
+    return "\n".join(parca)
+
+
 def kur(vault: Path) -> str:
     hafiza = vault / "HAFIZA"
     kullanici = str(ayar(vault).get("kullanici") or "Kullanıcı")
@@ -206,6 +239,9 @@ def kur(vault: Path) -> str:
     p = push_bekleyen(vault)
     if p:
         bolumler.append(("[Kod depoları — push ve commit durumu]", p))
+    yt = youtube_kuyruk(vault)
+    if yt:
+        bolumler.append(("[YouTube — Vault listesi izleyicisi]", yt))
     aday = kirp(kural_adaylari(hafiza), TAVAN["adaylar"], "kural adayları")
     if aday:
         bolumler.append((f"[Hafıza: Kural Adayları — derleyici çıkardı, {kullanici} onaylarsa Kurallar'a geçer]", aday))

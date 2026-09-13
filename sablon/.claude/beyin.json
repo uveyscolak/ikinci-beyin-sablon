@@ -9,5 +9,9 @@
   "alan_kokleri": [
     "İŞ",
     "KİŞİSEL"
-  ]
+  ],
+  "youtube": {
+    "liste": "",
+    "baglam": "<kullanıcı kim, ne iş yapıyor, şu anki önceliği ne; YouTube not yazarına verilir>"
+  }
 }

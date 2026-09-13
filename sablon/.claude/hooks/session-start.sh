@@ -28,6 +28,10 @@ if command -v python3 >/dev/null 2>&1; then
   nohup python3 "$BEYIN_PROJECT_DIR/.claude/scripts/flush.py" --maybe-compile >/dev/null 2>&1 &
   nohup python3 "$BEYIN_PROJECT_DIR/.claude/scripts/flush-catchup.py" \
     --current-key "$BEYIN_SESSION_KEY" >/dev/null 2>&1 &
+  # YouTube "Vault" listesi: yeni video varsa transkriptini çıkarır, kuyruğa yazar.
+  # Ağır iş (indirme, whisper) burada, ayrık süreçte; sonucu bir sonraki açılışta görünür.
+  nohup python3 "$BEYIN_PROJECT_DIR/.claude/scripts/youtube-izle.py" \
+    "$BEYIN_PROJECT_DIR" >/dev/null 2>&1 &
 fi
 
 # Önceki oturumdan push edilmemiş commit varsa arka planda gönder.

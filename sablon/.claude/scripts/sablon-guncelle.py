@@ -24,7 +24,7 @@ DOSYALAR = [
     "hooks/cevap-denetle.py", "hooks/cevap-denetle.sh", "hooks/dosya-denetle.py", "hooks/dosya-denetle.sh",
     "scripts/flush.py", "scripts/compile.py", "scripts/flush-catchup.py", "scripts/_gitcommit.py",
     "scripts/_portalock.py", "scripts/egitim-icindekiler.py", "scripts/saglik.py", "scripts/sablon-guncelle.py",
-    "scripts/index-uret.py",
+    "scripts/index-uret.py", "scripts/youtube-izle.py",
     "scripts/proje-kur.py", "skills/proje-kur/SKILL.md",
     "skills/beyin-doktor/SKILL.md", "skills/gecmis-import/SKILL.md", "skills/haftalik/SKILL.md",
     "skills/kaynak/SKILL.md",
