@@ -144,7 +144,7 @@ değişkeninden oku.
 | `EĞİTİMLER/KAYNAKLAR/` | Satın alınan eğitimler | Salt okunur |
 | `EĞİTİMLER/YOUTUBE/` | Oynatma listesinden gelen video notları ve `RAW/` transkriptleri | Makine ve sen |
 | `EĞİTİMLER/KENDİ NOTLARIM/` | Kendi eğitim notları | İkiniz |
-| `İŞ/` | İş notları, playbook'lar, iş alanları | İkiniz |
+| `İŞ/` | İş notları, tarifler, iş alanları | İkiniz |
 | `KİŞİSEL/` | Kimlik, kişisel notlar, kişisel alanlar | <AD> |
 | `PROJELER/` | Proje beyinleri: her proje bir klasör (sayfa, Kurallar, PRD, Kararlar, Durum); kökte yalnız genel sayfalar | Sen |
 | `ASSETS/` | Görseller ve Obsidian şablonları (`TEMPLATES/`) | İkiniz |
