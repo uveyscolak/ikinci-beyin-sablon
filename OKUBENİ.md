@@ -88,9 +88,10 @@ Vault/
 ├── GÜNLÜK/                makine yazar: her günün oturum özetleri
 ├── BİLGİ/                 makine derler: index.md, log.md, kavramlar/
 ├── GİZLİ/                 anahtarlar, git dışı
-├── PROJELER/              her proje bir klasör: sayfa, yönerge (varsa), PRD, Kararlar, Context
-├── İŞ/  KİŞİSEL/          kendi notların
+├── PROJELER/              her proje bir klasör: sayfa, kurallar (varsa), PRD, Kararlar, Durum
+├── İŞ/  KİŞİSEL/          kendi notların; kodsuz çalışma alanlarının beyin dosyaları BEYİN/ alt klasöründe
 ├── EĞİTİMLER/KAYNAKLAR/   satın alınan eğitimler, salt okunur
+├── EĞİTİMLER/YOUTUBE/     Vault listesinden gelen video notları ve ham transkriptleri
 ├── EĞİTİMLER/KENDİ NOTLARIM/
 └── .claude/               hooks/ scripts/ skills/ settings.json beyin.json
 ```
@@ -104,7 +105,7 @@ Vault/
 | Olay | Ne yapar |
 | --- | --- |
 | Oturum açılışı | Hızlı sağlık kontrolü; kural adayları, `HAFIZA/Çelişki Adayları.md` (varsa), güncenin son girişi, bilgi indeksinin son sekiz satırı (yeniden eskiye) ve bugünün günlük kuyruğu bağlama girer. Kurallar, Açık Konular ve Son Oturum kancayla değil `CLAUDE.md`'nin kendi dosya bağıyla (§12, aşağıda) yüklenir. Kaçan oturumlar ve gecikmiş derleme arka planda tamamlanır. |
-| Her mesaj | Proje adı geçince o projenin `PROJELER/<Proje>/` klasöründeki yönerge ve Context gelir (oturumda bir kez); aynı blokta `BİLGİ/` içindeki ilgili kavram makaleleri de listelenir (en fazla beş, en yenisi önce). 15 mesajda bir hatırlatma. |
+| Her mesaj | Proje adı ya da bir alanın tetik kelimesi geçince o proje veya alanın kuralları ve Durum dosyası gelir (oturumda bir kez); aynı blokta `BİLGİ/` içindeki ilgili kavram makaleleri ve alansa `BEYİN/TARİFLER/` klasöründeki tarifler de listelenir (en fazla beş, en yenisi önce). 15 mesajda bir hatırlatma. |
 | Sıkıştırma öncesi | Bağlam dolmadan özet alınır. |
 | Oturum kapanışı | Vault commit'lenir, konuşma Sonnet ile beş başlıkla özetlenir (`GÜNLÜK/`), `HAFIZA/Son Oturum.md` yenilenir, push gider. 18'den sonraysa derleyici çalışır. |
 
@@ -145,21 +146,26 @@ geçirip atomik kopyalar. Model canlı vault'a hiç yazmaz. Kullanıcının verd
 gerektiğinde okunur. Kırpma her zaman eskiyi düşürür, yeniyi değil.
 
 **Projeler** kod olarak vault dışında, kendi git'lerinde yaşar; akıl vault'ta `PROJELER/<Proje>/`
-klasöründedir: `<Proje> PRD.md` (hedef), `<Proje> Kararlar.md` (neden, yalnız eklenir),
-`<Proje> Context.md` (şu an), `<Proje> — Proje.md` (vitrin). Proje köküne yalnız vault'u gösteren
-işaretçi `CLAUDE.md` konur. Claude asla proje klasöründen açılmaz; vault'tan çalışır, adı geçince
-yönerge ve durum gelir. Yeni proje sohbette "şu adla proje kur" demekle `proje-kur` skill'inden
-açılır; elle şablon kopyalanmaz. Detay: anayasa §8 ve `proje-kur` skill'i.
+klasöründedir: `PRD.md` (hedef), `Kararlar.md` (neden, yalnız eklenir), `Durum.md` (şu an),
+`Proje.md` (vitrin), gerekirse `Kurallar.md` (yalnız o projeye özel). Proje köküne yalnız vault'u
+gösteren işaretçi `CLAUDE.md` konur. Claude asla proje klasöründen açılmaz; vault'tan çalışır, adı
+geçince kurallar ve durum gelir. Yeni proje sohbette "şu adla proje kur" demekle `proje-kur`
+skill'inden açılır; elle şablon kopyalanmaz. Detay: anayasa §8 ve `proje-kur` skill'i.
 
 **Proje ve alan.** Proje kodlu iş, alan kodsuz iş. Reklam, kişisel marka, video edit gibi kod
-gerektirmeyen bir konu proje değil **alan**dır: `İŞ/` veya `KİŞİSEL/` altında `<Ad> — Alan.md`
-sayfasıyla açılır. Sayfadaki `tetik:` listesi anahtar kelimelerdir; biri sohbette geçince alanın
-yönergesi ve durumu kendiliğinden gelir. Açmak için "şu konuda alan aç" demek yeter.
+gerektirmeyen bir konu proje değil **alan**dır: `İŞ/` veya `KİŞİSEL/` altında bir klasör, içinde
+`BEYİN/` alt klasörü (`Alan.md`, `Durum.md`, `Kararlar.md`, gerekirse `Kurallar.md`) ile açılır;
+BEYİN Claude'un, klasörün geri kalanı kullanıcının. Sayfadaki `tetik:` listesi anahtar
+kelimelerdir; biri sohbette geçince alanın kuralları ve durumu, ayrıca `BEYİN/TARİFLER/`
+klasöründeki damıtılmış tarifler kendiliğinden gelir. Açmak için "şu konuda alan aç" demek yeter.
 
 **Eğitimler.** Satın alınan eğitim `EĞİTİMLER/KAYNAKLAR/<EĞİTİM>/RAW/` (video, transkript) ve
 `WİKİ/` (her ders bir sayfa) ile durur. `python3 .claude/scripts/egitim-icindekiler.py --kilitle`
 her eğitime içindekiler sayfası yazar ve klasörü dosya izniyle kilitler; kendi notun için
-eğitimin kökündeki `NOTLARIM.md` açık kalır. `egitim` skill'i üç modda çalışır: sor, öğret, damıt.
+eğitimin kökündeki `NOTLARIM.md` açık kalır. Ayrıca bir YouTube "Vault" oynatma listesi
+kancayla izlenir; her yeni video için not ve ham transkript `EĞİTİMLER/YOUTUBE/` altına düşer,
+aynı düzeni satın alınan eğitimlerle paylaşır. `egitim` skill'i her iki kaynağa bakarak üç
+modda çalışır: sor, öğret, damıt.
 
 **Sırlar** yalnız `GİZLİ/` içinde; klasör git'e girmez. Claude değeri sohbete yazmaz, adıyla anar.
 
@@ -213,7 +219,7 @@ sohbetleri içe aktar.
   derleyici birkaç akşamda sindirir.
 - **Eski Claude Code projeleri:** proje başına kancaları sök, `CLAUDE.md`'yi vault'u gösteren
   işaretçiye indir (`ASSETS/TEMPLATES/`), vault'ta `PROJELER/<Proje>/` klasörü aç; özel kuralları
-  `<Proje> Yönerge.md`'ye (yalnız kural), bilgiyi `<Proje> PRD/Kararlar/Context.md` üçlüsüne,
+  `Kurallar.md`'ye (yalnız kural), bilgiyi `PRD/Kararlar/Durum.md` üçlüsüne,
   anahtarları `GİZLİ/`'ye; git geçmişini tara, sızmışsa yenile; hub satırı aç; repo görünürlüğünü
   doğrula.
 - **Satın alınan eğitimler:** `KAYNAKLAR/<EĞİTİM>/RAW` ve `WİKİ` düzeni, transkript (yt-dlp veya

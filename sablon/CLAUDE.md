@@ -175,7 +175,7 @@ kökünde `00 İçindekiler.md`, listesi `EĞİTİMLER/KAYNAKLAR/index.md`
 (`python3 .claude/scripts/egitim-icindekiler.py` üretir). Kullanıcının o eğitime dair notu
 eğitimin kökündeki not dosyasına (`.claude/beyin.json` içindeki `notlar_dosyasi`) yazılır; ders
 sayfalarında kırık wiki-link çıkarsa yalnız link hedefi onarılır, ders içeriği değişmez.
-Eğitimden işe dönüşen çıkarım `İŞ/` altına yazılır.
+Eğitimden işe dönüşen çıkarım o alanın `BEYİN/TARİFLER/` klasörüne `<Konu> Tarifi.md` adıyla yazılır.
 
 `EĞİTİMLER/YOUTUBE/` oynatma listesinden gelen videolardır (§3'teki kapı doldurur): not klasör
 kökünde (`<Kanal> — <Başlık>.md`), ham transkript `RAW/` altında, listesi `00 İçindekiler.md`.
@@ -208,7 +208,8 @@ Ayırt etme işi linkte çözülür, adda değil.
 - Diğer notlar (mimari, araştırma, roadmap) aynı klasörde, aynı sade adla.
 
 Alanlar da aynı dosyaları kullanır ama hepsi `BEYİN/` alt klasöründe durur: `BEYİN/Alan.md`,
-`BEYİN/Durum.md`, `BEYİN/Kararlar.md`, gerekirse `BEYİN/Kurallar.md`. **neden:** alan klasöründe
+`BEYİN/Durum.md`, `BEYİN/Kararlar.md`, gerekirse `BEYİN/Kurallar.md`. Damıtılmış tarifler
+`BEYİN/TARİFLER/` altında (`<Konu> Tarifi.md`). Tek kural: BEYİN Claude'un, gerisi kullanıcının. **neden:** alan klasöründe
 kullanıcının okuduğu iş dosyaları da durur; beyin dosyaları tek klasörde toplanınca kapalı kalır, göz
 iş dosyasında olur. Projede alt klasör yoktur, orada zaten başka dosya yoktur.
 
@@ -269,9 +270,10 @@ makaleleri de listelenir (en fazla beş). Proje adları `PROJELER/` altındaki
 klasörlerden, alanlar `İŞ/` ve `KİŞİSEL/` altındaki `BEYİN/Alan.md` sayfalarından okunur; ayrı
 kayıt yoktur. İsteğe bağlı: sistemin kendisi için de bir proje açılabilir.
 
-**Eğitim kaynakları.** Bir alanın ya da projenin Durum dosyasındaki `## Kaynaklar` listesi o işin
-eğitim kaynaklarıdır: YouTube notları, damıtılmış eğitim çıktıları, dış rehberler. Kanca alan
-uyanınca bu listeyi tek satır özetle ayrı bir blokta basar. Kural: o alanda plan, script, strateji
+**Eğitim kaynakları.** Bir alanın eğitim kaynakları iki yerdedir: `BEYİN/TARİFLER/` klasöründeki
+tarifler ve Durum dosyasındaki `## Kaynaklar` listesi (YouTube notları, dış rehberler). Kanca alan
+uyanınca ikisini de tek satır özetle ayrı bir blokta basar; tarifin klasöre düşmesi yeter, liste elle
+tutulmaz. Kural: o alanda plan, script, strateji
 ya da içerik yazmadan önce ilgili kaynak okunur, kullanıcı söylemez (uzun kaynakta ilgili bölümü
 `arastirmaci` çıkarır). Kaynaklar birbiriyle çelişirse iki plan da sunulur. Kaynağın dediğine
 katılmıyorsan kendi fikrin ayrı ve işaretli verilir. Yeni kaynak doğunca listeye satır düşer: YouTube

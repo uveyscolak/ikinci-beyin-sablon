@@ -152,10 +152,62 @@ def bilgi_blogu(kayitlar: list[tuple[str, str, str]], anahtarlar: list[str]) -> 
     return "\n".join(satirlar)
 
 
-# Eğitim kaynakları bloğu: alan/proje tetiklenince Durum'daki Kaynaklar maddeleri ve
-# EĞİTİMLER/YOUTUBE'daki ilgili videolar tek blokta gösterilir; kullanıcı hatırlatmasın.
+# Eğitim kaynakları bloğu: alan/proje tetiklenince BEYİN/TARİFLER (proje için TARİFLER)
+# klasöründeki damıtılmış tarifler, Durum'daki Kaynaklar maddeleri ve EĞİTİMLER/YOUTUBE'daki
+# ilgili videolar tek blokta gösterilir; kullanıcı hatırlatmasın.
 EGITIM_TAVAN = 3000
 RE_ILK_LINK = re.compile(r"\[\[([^|\]]+)")
+
+
+def _tarif_aciklama(dosya: Path) -> str:
+    """Tarif dosyasının H1'inden sonraki ilk boş olmayan, başlık olmayan satırını döner.
+
+    Baştaki `> ` (alıntı) ve `**...**` (kalın) gibi işaretler atılır, 120 karakterde kesilir.
+    Açıklama bulunamazsa boş döner.
+    """
+    try:
+        satirlar = dosya.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return ""
+    h1_gecti = False
+    for satir in satirlar:
+        s = satir.strip()
+        if not h1_gecti:
+            if s.startswith("# "):
+                h1_gecti = True
+            continue
+        if not s or s.startswith("#"):
+            continue
+        s = s.lstrip(">").strip()
+        s = s.replace("**", "").strip()
+        # "Kaynak: 2026-07-28 oturumu" gibi üst bilgi satırları açıklama değildir; atla.
+        if not s or re.match(r"^(Kaynak|Tarih|Eklendi|Güncellendi|Durum)\s*:", s):
+            continue
+        return s[:120].rstrip()
+    return ""
+
+
+def tarifler_maddeleri(vault: Path, tarifler_klasor: Path) -> list[str]:
+    """`<alan/proje>/[BEYİN/]TARİFLER/*.md` dosyalarını ad sırasıyla listeler.
+
+    Biçim: `[[<vault'a göre yol, uzantısız>|<dosya adı>]] — <açıklama>` (açıklama yoksa atlanır).
+    """
+    if not tarifler_klasor.is_dir():
+        return []
+    sonuc = []
+    for dosya in sorted(tarifler_klasor.glob("*.md"), key=lambda p: nfc(p.name)):
+        try:
+            rel = dosya.relative_to(vault)
+        except ValueError:
+            continue
+        yol = nfc(str(rel.with_suffix("")))
+        ad = nfc(dosya.stem)
+        aciklama = _tarif_aciklama(dosya)
+        if aciklama:
+            sonuc.append(f"[[{yol}|{ad}]] — {aciklama}")
+        else:
+            sonuc.append(f"[[{yol}|{ad}]]")
+    return sonuc
 
 
 def youtube_alan_maddeleri(vault: Path, alan_klasor_rel: str) -> list[str]:
@@ -200,29 +252,28 @@ def youtube_alan_maddeleri(vault: Path, alan_klasor_rel: str) -> list[str]:
     return sonuc
 
 
-def egitim_kaynaklari_blogu(ad: str, durum_maddeler: list[str], youtube_maddeler: list[str]) -> str:
-    """Durum'daki Kaynaklar maddeleri ve YouTube eşleşmelerini tek blokta birleştirir.
+def egitim_kaynaklari_blogu(
+    ad: str, tarif_maddeler: list[str], durum_maddeler: list[str], youtube_maddeler: list[str]
+) -> str:
+    """TARİFLER, Durum'daki Kaynaklar maddeleri ve YouTube eşleşmelerini tek blokta birleştirir.
 
-    YouTube maddesinin not yolu Durum'da zaten geçiyorsa tekrar eklenmez. İki kaynak da
+    Sıra: (1) TARİFLER, (2) Durum Kaynakları, (3) YouTube. Bir yol daha önce geçtiyse
+    (hangi kaynaktan olursa olsun) tekrar eklenmez, ilk geçtiği yerde kalır. Üç kaynak da
     boşsa boş döner (blok hiç basılmaz). EGITIM_TAVAN'ı aşarsa madde sayısı kesilir.
     """
-    if not durum_maddeler and not youtube_maddeler:
+    if not tarif_maddeler and not durum_maddeler and not youtube_maddeler:
         return ""
-    gorulen_yol = set()
-    for madde in durum_maddeler:
-        m = RE_ILK_LINK.search(madde)
-        if m:
-            gorulen_yol.add(nfc(m.group(1).strip()).casefold())
-
-    maddeler = list(durum_maddeler)
-    for madde in youtube_maddeler:
-        m = RE_ILK_LINK.search(madde)
-        yol = nfc(m.group(1).strip()).casefold() if m else None
-        if yol and yol in gorulen_yol:
-            continue
-        maddeler.append(madde)
-        if yol:
-            gorulen_yol.add(yol)
+    gorulen_yol: set[str] = set()
+    maddeler: list[str] = []
+    for kaynak in (tarif_maddeler, durum_maddeler, youtube_maddeler):
+        for madde in kaynak:
+            m = RE_ILK_LINK.search(madde)
+            yol = nfc(m.group(1).strip()).casefold() if m else None
+            if yol and yol in gorulen_yol:
+                continue
+            maddeler.append(madde)
+            if yol:
+                gorulen_yol.add(yol)
 
     baslik = f"\n[Eğitim kaynakları — {ad}]"
     kuyruk = (
@@ -230,7 +281,8 @@ def egitim_kaynaklari_blogu(ad: str, durum_maddeler: list[str], youtube_maddeler
         "kullanıcının söylemesini bekleme. Uzun kaynakta ilgili bölümü `arastirmaci` ajanına "
         "çıkarttır. Kaynaklar birbiriyle çelişiyorsa iki planı da sun. Kaynağın dediğine "
         "katılmıyorsan kendi fikrini ayrı ve işaretli ver. Kurallar dosyasındaki \"önce oku\" "
-        "dosyaları da bu listenin parçasıdır."
+        "dosyaları da bu listenin parçasıdır. TARİFLER klasöründeki dosyalar o işin adım adım "
+        "tarifidir; ilgili olanı uygula, yorum katma."
     )
     gosterilecek = list(maddeler)
     while gosterilecek:
@@ -508,8 +560,10 @@ def main() -> int:
         durum_dosyasi = proje_cekirdek(proje_klasor, "Durum")
         # Proje klasörünün İçindekiler tablosunda alan sütunuyla eşleşen bir yolu yoktur
         # (o sütun yalnız BEYİN/Alan.md hedeflerini gösterir); YouTube tarafı doğal olarak boş.
+        # Proje için TARİFLER doğrudan proje klasöründedir (BEYİN alt klasörü yok).
         egitim = egitim_kaynaklari_blogu(
-            ad, durum_kaynak_maddeleri(durum_dosyasi),
+            ad, tarifler_maddeleri(vault, proje_klasor / "TARİFLER"),
+            durum_kaynak_maddeleri(durum_dosyasi),
             youtube_alan_maddeleri(vault, f"PROJELER/{ad}"),
         )
         metin = govde(
@@ -534,7 +588,8 @@ def main() -> int:
         durum_dosyasi = alan_cekirdek(beyin_klasor, "Durum")
         alan_klasor_rel = str(alan_klasor.relative_to(vault))
         egitim = egitim_kaynaklari_blogu(
-            ad, durum_kaynak_maddeleri(durum_dosyasi),
+            ad, tarifler_maddeleri(vault, beyin_klasor / "TARİFLER"),
+            durum_kaynak_maddeleri(durum_dosyasi),
             youtube_alan_maddeleri(vault, alan_klasor_rel),
         )
         metin = govde(
