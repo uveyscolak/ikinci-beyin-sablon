@@ -1,0 +1,28 @@
+[
+ {
+  "modul": "Kafa Yapısı ile Karakter İnşası",
+  "kategoriler": [
+   {
+    "id": "2151454551",
+    "ad": "Kafa Yapısı ile Karakter İnşası Bölüm 1",
+    "dersler": [
+     "2162149680"
+    ]
+   },
+   {
+    "id": "2151456689",
+    "ad": "Kafa Yapısı ile Karakter İnşası Bölüm 2",
+    "dersler": [
+     "2162149684"
+    ]
+   },
+   {
+    "id": "2151456701",
+    "ad": "Kafa Yapısı ile Karakter İnşası Bölüm 3",
+    "dersler": [
+     "2162149686"
+    ]
+   }
+  ]
+ }
+]

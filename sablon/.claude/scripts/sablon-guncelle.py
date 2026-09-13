@@ -28,6 +28,11 @@ DOSYALAR = [
     "scripts/proje-kur.py", "skills/proje-kur/SKILL.md",
     "skills/beyin-doktor/SKILL.md", "skills/gecmis-import/SKILL.md", "skills/haftalik/SKILL.md",
     "skills/kaynak/SKILL.md",
+    "skills/egitim-ekle/SKILL.md", "skills/egitim-ekle/scripts/agac.js", "skills/egitim-ekle/scripts/sayfalar.js",
+    "skills/egitim-ekle/scripts/analiz-workflow.js", "skills/egitim-ekle/scripts/kur.py",
+    "skills/egitim-ekle/scripts/sayfa-uret.py", "skills/egitim-ekle/scripts/indir.sh",
+    "skills/egitim-ekle/scripts/transkript.py", "skills/egitim-ekle/scripts/transkript-dongu.sh",
+    "skills/egitim-ekle/ornek/agac.json", "skills/egitim-ekle/ornek/dersler.json",
     "agents/arastirmaci.md", "agents/amele.md", "agents/mimar.md", "agents/denetci.md",
 ]
 YASAK = ["Üveys", "ÜVEYS", "uveys", "Minval", "MİNVAL", "minval", "/Volumes/DEPO", "genuine-tower",
