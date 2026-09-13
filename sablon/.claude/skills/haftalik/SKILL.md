@@ -22,11 +22,11 @@ kalmak zorundadır.
    - Kapanan maddeler silinmez, `HAFIZA/Arşiv/Açık Konular Arşivi.md` dosyasının sonuna tarihli taşınır.
    - 14 gün hareketsiz açık madde kullanıcıya sorulur: kalsın mı, kapandı mı.
    - Her madde en fazla üç satır (başlık, durum, kalan iş); uzayan kısaltılır. Bir projenin durum
-     notu Açık Konular'da değil o projenin `Context.md` dosyasında yaşar; Açık Konular yalnız link verir.
+     notu Açık Konular'da değil o projenin `Durum.md` dosyasında yaşar; Açık Konular yalnız link verir.
    - Dosya 6.000 karakteri geçmez.
-5. **Projelerin nabzı.** Her projenin `PROJELER/<Proje>/<Proje> Context.md` dosyasındaki "Son
+5. **Projelerin nabzı.** Her projenin `PROJELER/<Proje>/Durum.md` dosyasındaki "Son
    güncelleme" tarihine bak. 30 günden eski olanları listele; kullanıcıya sor: o projeye bir
-   oturum mu ayrılacak, yoksa `PROJELER/<Proje>/<Proje> — Proje.md` sayfasına "durdu" mu
+   oturum mu ayrılacak, yoksa `PROJELER/<Proje>/Proje.md` sayfasına "durdu" mu
    yazılacak.
 6. **Bilgi tabanı.** `BİLGİ/index.md` 300 satırı geçtiyse tema başlıklarıyla grupla (eski satırlar
    başlık altında toplanır, makaleler dokunulmaz). Geçmediyse dokunma.

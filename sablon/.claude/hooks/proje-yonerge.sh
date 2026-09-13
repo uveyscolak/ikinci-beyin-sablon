@@ -1,6 +1,6 @@
 #!/bin/bash
 [ -n "${BEYIN_INVOKED_BY:-}" ] && exit 0
-# Kullanıcı bir proje adı geçirdiğinde o projenin yönergesini ve güncel durumunu
+# Kullanıcı bir proje adı geçirdiğinde o projenin kurallarını ve güncel durumunu
 # doğrudan konuşmaya enjekte eder. "Şuraya bak" demek yerine önüne koyar.
 
 BEYIN_HOOK_DIR=$(CDPATH= cd "$(dirname "$0")" 2>/dev/null && pwd)

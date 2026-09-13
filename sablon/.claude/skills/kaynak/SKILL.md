@@ -72,7 +72,7 @@ Kurallar:
 
 ## 4. Proje veya alana bağla
 
-Kullanıcı bir proje ya da alan adı verdiyse o Context'in sonuna tek satır düş:
+Kullanıcı bir proje ya da alan adı verdiyse o Durum dosyasının sonuna tek satır düş:
 `- YYYY-AA-GG kaynak: <başlık> — özet [[GÜNLÜK/YYYY-AA-GG]]`. Söylemediyse dokunma.
 Kaynak bir kararı değiştiriyorsa karar Kararlar dosyasına kullanıcı onayıyla girer, kendiliğinden değil.
 

@@ -36,8 +36,8 @@ Son Oturum, Açık Konular, Kurallar ve indeksin son satırları zaten önünde.
 
 ## Diğer kaynaklar
 
-- Proje sorusuysa: `PROJELER/<Proje>/<Proje> Kararlar.md` (tarihli kararlar ve gerekçeleri) ve `PROJELER/<Proje>/<Proje> — Proje.md`.
-- Alan sorusuysa: alan klasöründeki `<Ad> Kararlar.md` ve `<Ad> Context.md`.
+- Proje sorusuysa: `PROJELER/<Proje>/Kararlar.md` (tarihli kararlar ve gerekçeleri) ve `PROJELER/<Proje>/Proje.md`.
+- Alan sorusuysa: alan klasöründeki `BEYİN/Kararlar.md` ve `BEYİN/Durum.md`.
 - Hâlâ yoksa kök `index.md` üzerinden el yazısı notlara bak.
 
 ## Kaynak vermek zorunlu

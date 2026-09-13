@@ -2,18 +2,18 @@
 
 Projelerin kodu `beyin.json` içindeki `projeler` kökü altında, kendi git'lerinde yaşıyor. Bu
 klasör onların vault tarafıdır: her projenin ne olduğu, neden var olduğu ve en son nerede
-kaldığı. Canlı durum projenin kendi `PROJELER/<Proje>/<Proje> Context.md` dosyasında; adı
+kaldığı. Canlı durum projenin kendi `PROJELER/<Proje>/Durum.md` dosyasında; adı
 geçince kanca onu zaten yüklüyor.
 
 ## Projeler
 
-| Proje | Ne | Yönerge |
+| Proje | Ne | Kurallar |
 |---|---|---|
 | [[<Proje> — Proje]] | <tek satır> | var / yok |
 
 ## Alanlar
 
-Kodsuz çalışma alanları. Proje değil; adı veya tetik kelimesi geçince yönergesi ve durumu
+Kodsuz çalışma alanları. Proje değil; adı veya tetik kelimesi geçince kuralları ve durumu
 kendiliğinden gelir.
 
 | Alan | Ne | Klasör |

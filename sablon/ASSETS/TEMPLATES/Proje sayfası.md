@@ -7,11 +7,11 @@
 ## Nerede duruyor
 - **Kod:** `beyin.json` içindeki `projeler` kökü altında <Proje>/
 - **Git:** <url> — <özel | açık>
-- **Yönerge:** [[<Proje> Yönerge]] veya yok
-- **Beyin:** [[<Proje> PRD|PRD]] · [[<Proje> Kararlar|Kararlar]] · [[<Proje> Context|Context]]
+- **Kurallar:** [[PROJELER/<Proje>/Kurallar|Kurallar]] veya yok
+- **Beyin:** [[PROJELER/<Proje>/PRD|PRD]] · [[PROJELER/<Proje>/Kararlar|Kararlar]] · [[PROJELER/<Proje>/Durum|Durum]]
 
 ## Son bilinen hal
-<İki üç cümle, tarihli. Canlı durum [[<Proje> Context|Context]]'te; bu sayfa onu tekrarlamaz.>
+<İki üç cümle, tarihli. Canlı durum [[PROJELER/<Proje>/Durum|Durum]]'da; bu sayfa onu tekrarlamaz.>
 
 ## Bağlantılar
 [[Projeler]]

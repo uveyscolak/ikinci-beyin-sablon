@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Yeni proje ya da yeni çalışma alanı kurulumu.
 
-Proje = kodu olan iş. Vault'ta PROJELER/<Ad>/ (Proje.md, PRD.md, Kararlar.md, Context.md),
-kod klasöründe git deposu + CLAUDE.md işaretçisi.
-Alan  = kodu olmayan çalışma alanı. Vault'ta verilen klasörün içine
-        Alan.md (tetik kelimeleriyle ve `ad:` frontmatter'ıyla), Context.md, Kararlar.md.
+Proje = kodu olan iş. Vault'ta PROJELER/<Ad>/ (Proje.md, PRD.md, Kararlar.md, Durum.md;
+BEYİN alt klasörü yoktur), kod klasöründe git deposu + CLAUDE.md işaretçisi.
+Alan  = kodu olmayan çalışma alanı. Vault'ta verilen klasörün içine BEYİN/ alt klasörü:
+        BEYİN/Alan.md (tetik kelimeleriyle ve `ad:` frontmatter'ıyla), BEYİN/Durum.md,
+        BEYİN/Kararlar.md. Alan klasörü = BEYİN'in üst klasörü.
 
 Kullanım:
   python3 proje-kur.py --ad "Ad" [--amac "tek cümle"] [--klasor /yol] [--kod-yok] [--kuru]
@@ -14,7 +15,8 @@ Kurallar:
   - Kod dışarıda (beyin.json "projeler" kökü altında), akıl vault'ta PROJELER/<Ad>/ altında.
   - Vault klasörü zaten varsa durur; kod klasörü varsa koda dokunmaz, sadece eksik
     CLAUDE.md ve .gitignore satırını tamamlar.
-  - Alan modunda klasör zaten varsa dolduruluyor, var olan dosyanın üstüne yazılmıyor.
+  - Alan modunda klasör zaten varsa dolduruluyor, var olan dosyanın üstüne yazılmıyor;
+    dosyalar klasörün BEYİN/ alt klasörüne açılır.
   - Sırlar vault'a girmez; anahtarlar GİZLİ/ altında tutulur.
 """
 import argparse
@@ -45,10 +47,10 @@ def t_claude_md(ad):
 Bu projenin kuralları burada tutulmuyor.
 
 **Ortak anayasa:** {VAULT}/CLAUDE.md
-**Proje beyni:** {VAULT}/PROJELER/{ad}/ — sayfa, yönerge (varsa), PRD, Kararlar, Context
+**Proje beyni:** {VAULT}/PROJELER/{ad}/ — sayfa, kurallar (varsa), PRD, Kararlar, Durum
 
 Claude her zaman {VAULT} klasöründen çalıştırılır. Bir projenin adı geçtiğinde o projenin
-yönergesi ve `Context.md` dosyası oturuma otomatik enjekte edilir.
+kuralları ve `Durum.md` dosyası oturuma otomatik enjekte edilir.
 
 Bu klasörde yalnız kod durur. `brain/` açılmaz; akıl vault'tadır.
 
@@ -70,11 +72,11 @@ def t_sayfa(ad, amac, klasor, proje_rel):
 ## Nerede duruyor
 - **Kod:** {klasor or 'kod yok'}
 - **Git:** <url> — <özel | açık>
-- **Yönerge:** yok (gerekirse `Yönerge.md` açılır)
-- **Beyin:** [[{proje_rel}/PRD|PRD]] · [[{proje_rel}/Kararlar|Kararlar]] · [[{proje_rel}/Context|Context]]
+- **Kurallar:** yok (gerekirse `Kurallar.md` açılır)
+- **Beyin:** [[{proje_rel}/PRD|PRD]] · [[{proje_rel}/Kararlar|Kararlar]] · [[{proje_rel}/Durum|Durum]]
 
 ## Son bilinen hal
-Kuruldu ({BUGUN}). Canlı durum [[{proje_rel}/Context|Context]] sayfasında; bu sayfa onu tekrarlamaz.
+Kuruldu ({BUGUN}). Canlı durum [[{proje_rel}/Durum|Durum]] sayfasında; bu sayfa onu tekrarlamaz.
 
 ## Bağlantılar
 [[Projeler]]
@@ -84,7 +86,7 @@ Kuruldu ({BUGUN}). Canlı durum [[{proje_rel}/Context|Context]] sayfasında; bu 
 def t_prd(ad, amac, proje_rel):
     return f"""# {ad} — PRD
 
-**Yazıldı:** {BUGUN} · **Mod:** <hızlı | tam> · **Bağlı:** [[{proje_rel}/Context|Context]]
+**Yazıldı:** {BUGUN} · **Mod:** <hızlı | tam> · **Bağlı:** [[{proje_rel}/Durum|Durum]]
 
 ## Problem
 {amac or '<Kullanıcının yaşadığı problem, onun gözünden.>'}
@@ -111,12 +113,12 @@ def t_prd(ad, amac, proje_rel):
 > Yalnız eklenir: `[YYYY-AA-GG] ne değişti — bkz. Kararlar [tarih]`.
 
 ---
-[[{proje_rel}/Context|Context]] — ana hub
+[[{proje_rel}/Durum|Durum]] — ana hub
 """
 
 
-def t_context(ad, klasor, proje_rel):
-    return f"""# {ad} — Context
+def t_durum(ad, klasor, proje_rel):
+    return f"""# {ad} — Durum
 
 **Durum:** 🟡 kurulum
 **Son güncelleme:** {BUGUN}
@@ -152,7 +154,7 @@ def t_kararlar(ad):
 """
 
 
-def t_alan_sayfa(ad, amac, tetikler, klasor):
+def t_alan_sayfa(ad, amac, tetikler, klasor, beyin_rel):
     ust = "---\ntetik: [" + ", ".join(tetikler) + f"]\nad: {ad}\n---\n" if tetikler else f"---\nad: {ad}\n---\n"
     return f"""{ust}# {ad} — Alan
 
@@ -162,24 +164,24 @@ def t_alan_sayfa(ad, amac, tetikler, klasor):
 
 ## Nerede duruyor
 - **Klasör:** {klasor}
-- **Yönerge:** yok (gerekirse `Yönerge.md` açılır)
-- **Beyin:** [[{klasor}/Kararlar|Kararlar]] · [[{klasor}/Context|Context]]
+- **Kurallar:** yok (gerekirse `BEYİN/Kurallar.md` açılır)
+- **Beyin:** [[{beyin_rel}/Kararlar|Kararlar]] · [[{beyin_rel}/Durum|Durum]]
 
 ## Tetik kelimeleri
-Yukarıdaki `tetik:` satırındaki kelimelerden biri sohbette geçtiğinde bu alanın yönergesi
-ve Context'i oturuma otomatik yüklenir. Listeyi değiştirmek için o satırı düzenle;
+Yukarıdaki `tetik:` satırındaki kelimelerden biri sohbette geçtiğinde bu alanın kuralları
+ve Durum'u oturuma otomatik yüklenir. Listeyi değiştirmek için o satırı düzenle;
 burada tekrarlama.
 
 ## Son bilinen hal
-Kuruldu ({BUGUN}). Canlı durum [[{klasor}/Context|Context]] sayfasında; bu sayfa onu tekrarlamaz.
+Kuruldu ({BUGUN}). Canlı durum [[{beyin_rel}/Durum|Durum]] sayfasında; bu sayfa onu tekrarlamaz.
 
 ## Bağlantılar
 [[Projeler]]
 """
 
 
-def t_alan_context(ad, klasor):
-    return f"""# {ad} — Context
+def t_alan_durum(ad, klasor, beyin_rel):
+    return f"""# {ad} — Durum
 
 **Durum:** 🟡 kurulum
 **Son güncelleme:** {BUGUN}
@@ -198,8 +200,8 @@ def t_alan_context(ad, klasor):
 - <Karara bağlanmamış şeyler, tarihiyle.>
 
 ## Alt Sayfalar
-- [[{klasor}/Kararlar|Kararlar]] — neden öyle yapıldığı
-- [[{klasor}/Alan|Alan]] — alanın vault sayfası
+- [[{beyin_rel}/Kararlar|Kararlar]] — neden öyle yapıldığı
+- [[{beyin_rel}/Alan|Alan]] — alanın vault sayfası
 """
 
 
@@ -209,8 +211,8 @@ def t_alan_kararlar(ad, klasor):
 > NEDEN'in tek evi. Yalnız eklenir. Her karar: tarih, ne, neden, varsa "denedik olmadı".
 
 ## [{BUGUN}] Alan kuruldu
-**Ne:** `{klasor}` altında alan sayfası, Context ve Kararlar açıldı.
-**Neden:** Kodu olmayan işin de yönergesi ve canlı durumu olmalı; anayasanın "Projelerde çalışma düzeni" bölümü.
+**Ne:** `{klasor}` altında BEYİN/ alt klasörüne alan sayfası, Durum ve Kararlar açıldı.
+**Neden:** Kodu olmayan işin de kuralları ve canlı durumu olmalı; anayasanın "Projelerde çalışma düzeni" bölümü.
 """
 
 
@@ -336,7 +338,7 @@ def vault_kur(ad, amac, klasor, kuru):
         "Proje.md": t_sayfa(ad, amac, klasor, proje_rel),
         "PRD.md": t_prd(ad, amac, proje_rel),
         "Kararlar.md": t_kararlar(ad),
-        "Context.md": t_context(ad, klasor, proje_rel),
+        "Durum.md": t_durum(ad, klasor, proje_rel),
     }
     print(f"  + {hedef.relative_to(VAULT)}/")
     for isim, icerik in dosyalar.items():
@@ -352,20 +354,22 @@ def alan_kur(ad, amac, tetikler, klasor_rel, kuru):
         hedef.resolve().relative_to(VAULT.resolve())
     except (ValueError, OSError):
         sys.exit(f"HATA: alan klasörü vault dışında: {klasor_rel}")
+    beyin_rel = f"{klasor_rel}/BEYİN"
+    beyin = hedef / "BEYİN"
     dosyalar = {
-        "Alan.md": t_alan_sayfa(ad, amac, tetikler, klasor_rel),
-        "Context.md": t_alan_context(ad, klasor_rel),
+        "Alan.md": t_alan_sayfa(ad, amac, tetikler, klasor_rel, beyin_rel),
+        "Durum.md": t_alan_durum(ad, klasor_rel, beyin_rel),
         "Kararlar.md": t_alan_kararlar(ad, klasor_rel),
     }
-    print(f"  + {klasor_rel}/")
+    print(f"  + {beyin_rel}/")
     for isim, icerik in dosyalar.items():
-        if (hedef / isim).exists():
+        if (beyin / isim).exists():
             print(f"      = {isim} (var, dokunulmadı)")
             continue
         print(f"      {isim}")
         if not kuru:
-            hedef.mkdir(parents=True, exist_ok=True)
-            (hedef / isim).write_text(icerik, encoding="utf-8")
+            beyin.mkdir(parents=True, exist_ok=True)
+            (beyin / isim).write_text(icerik, encoding="utf-8")
 
 
 def main():
@@ -397,7 +401,7 @@ def main():
         alan_kur(ad, a.amac, tetikler, klasor_rel, a.kuru)
         hub_alan_satiri(ad, a.amac, klasor_rel, a.kuru)
         if not a.kuru:
-            print("\nBitti. Sıradaki adım: Context'i doldur, ilk kararı Kararlar'a yaz, "
+            print("\nBitti. Sıradaki adım: Durum'u doldur, ilk kararı Kararlar'a yaz, "
                   "tetik kelimelerini gözden geçir.")
         return
     if a.tetik:
@@ -417,7 +421,7 @@ def main():
         kod_kur(ad, klasor, a.kuru)
     hub_proje_satiri(ad, a.amac, a.kuru)
     if not a.kuru:
-        print("\nBitti. Sıradaki adım: PRD'yi sohbetle doldur, ilk kararı Kararlar'a yaz, Context'i güncelle.")
+        print("\nBitti. Sıradaki adım: PRD'yi sohbetle doldur, ilk kararı Kararlar'a yaz, Durum'u güncelle.")
 
 
 if __name__ == "__main__":

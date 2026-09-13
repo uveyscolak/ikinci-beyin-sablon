@@ -22,6 +22,6 @@ yalnız giriştir, kullanıcı isterse kendi diline göre değiştirir.
 - [[Eğitim İçindekiler örneği]] — <Eğitmen, <kaç modül, <kaç ders, <transkript durumu.
 - [[Proje CLAUDE.md işaretçisi]] — Bu projenin kuralları burada tutulmuyor.
 - [[Proje sayfası]] — Ne: <tek cümle
-- [[Yönerge]] — Yalnız bu projeye özel kurallar.
+- [[Kurallar]] — Yalnız bu projeye özel kurallar.
 
 _6 not, 3 klasör._

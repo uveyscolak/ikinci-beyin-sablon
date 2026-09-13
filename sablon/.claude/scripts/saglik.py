@@ -216,7 +216,7 @@ def link_taramasi() -> dict:
 
         for m in RE_LINK.finditer(metin):
             hedef = m.group(1).split("|")[0].split("#")[0].split("^")[0].strip().rstrip("\\").strip()
-            # Şablon yer tutucusu ([[...]], [[ad.mp4]], [[<Proje> Context]]) hedef değildir.
+            # Şablon yer tutucusu ([[...]], [[ad.mp4]], [[<Proje> Durum]]) hedef değildir.
             if not hedef or set(hedef) <= {"."} or RE_YERTUTUCU.search(hedef):
                 continue
             k = _nfc(hedef).casefold()
@@ -316,29 +316,25 @@ def linkler_raporu() -> str:
 YAPI_MUAF_KOK = {"HAFIZA", "GÜNLÜK", "BİLGİ", "GİZLİ", "YEDEK", ".git", ".obsidian", ".claude", ".trash"}
 # Bu adlar tasarım gereği linksizdir: katalog, anayasa, eğitim içindekileri, kişisel not dosyası.
 YAPI_MUAF_AD = {"CLAUDE.md", "index.md", "00 İçindekiler.md"}
-PROJE_CEKIRDEK = ("— Proje", "Context", "Kararlar", "PRD")
-ALAN_SONEK = " — Alan.md"
+PROJE_CEKIRDEK = ("Proje", "Durum", "Kararlar", "PRD")
 RE_FRONTMATTER_AD = re.compile(r"^ad:\s*(.+)$", re.MULTILINE)
 
 
-def cekirdek(klasor: Path, ad: str, tur: str) -> Path | None:
-    """`Context`, `Kararlar`, `PRD`, `Yönerge`, `Proje`, `Alan` dosyasını bulur.
-    Önce sade ad (Context.md), yoksa eski önekli ad (<Ad> Context.md)."""
+def cekirdek(klasor: Path, tur: str) -> Path | None:
+    """Proje klasöründe `Proje`, `Durum`, `Kararlar`, `PRD`, `Kurallar` dosyasını bulur
+    (BEYİN alt klasörü yok, geri uyumluluk gerekmiyor)."""
     sade = klasor / f"{tur}.md"
-    if sade.is_file():
-        return sade
-    onekli = klasor / f"{ad} {tur}.md"
-    if onekli.is_file():
-        return onekli
-    if tur in ("Proje", "Alan"):
-        tireli = klasor / f"{ad} — {tur}.md"
-        if tireli.is_file():
-            return tireli
-    return None
+    return sade if sade.is_file() else None
+
+
+def alan_cekirdek(beyin_klasor: Path, tur: str) -> Path | None:
+    """Alanın `BEYİN/` klasöründe `Alan`, `Durum`, `Kararlar`, `Kurallar` dosyasını bulur."""
+    sade = beyin_klasor / f"{tur}.md"
+    return sade if sade.is_file() else None
 
 
 def alan_dosyasi_mi(isim: str) -> bool:
-    return isim == "Alan.md" or isim.endswith(" — Alan.md")
+    return isim == "Alan.md"
 
 
 def alan_adi_oku(sayfa: Path, ad_dosyadan: str) -> str:
@@ -437,10 +433,9 @@ def _bolum_hedefleri(dosya: Path, baslik: str) -> set[str]:
 def _icerik_alan_linkliyor_mu(icerik: str, alanlar: list[tuple[str, Path | None]]) -> bool:
     """İçerikteki wiki-linklerden biri verilen alanlardan birini işaret ediyor mu.
 
-    Hedef sade ("Alan"), önekli ("<Ad> — Alan") ya da tam yollu ("İŞ/.../Alan")
-    olabilir; ölçüt hedefin taban adının "Alan" olması veya adla eşleşmesi.
+    Hedef sade ("Alan"), tam yollu ("İŞ/.../BEYİN/Alan") olabilir; ölçüt hedefin
+    taban adının "Alan" olması (BEYİN düzeninde alan adı yoldan gelir, dosya adından değil).
     """
-    adlar_kucuk = {_nfc(ad).casefold() for ad, _ in alanlar}
     govde = RE_INLINE.sub(" ", RE_FENCE.sub(" ", icerik))
     for m in RE_LINK.finditer(govde):
         hedef = m.group(1).split("|")[0].split("#")[0].split("^")[0].strip()
@@ -452,26 +447,24 @@ def _icerik_alan_linkliyor_mu(icerik: str, alanlar: list[tuple[str, Path | None]
         taban = k.rsplit("/", 1)[-1]
         if taban == "alan":
             return True
-        for ad_kucuk in adlar_kucuk:
-            if taban == f"{ad_kucuk} — alan":
-                return True
     return False
 
 
 def _alanlari_bul() -> list[tuple[str, Path]]:
-    """İŞ ve KİŞİSEL altındaki `Alan.md` / `<Ad> — Alan.md` sayfaları."""
+    """İŞ ve KİŞİSEL altındaki `BEYİN/Alan.md` sayfaları.
+
+    Alan klasörü BEYİN'in üst klasörüdür; alanın adı o klasörün adı ya da Alan.md'nin
+    frontmatter'ındaki `ad:` alanı. "BEYİN" hiçbir zaman alan adı sayılmaz.
+    """
     bulunan: list[tuple[str, Path]] = []
     for kok_adi in (_ayar().get("alan_kokleri") or ["İŞ", "KİŞİSEL"]):
         kok = VAULT / kok_adi
         if not kok.is_dir():
             continue
-        for p in kok.rglob("*.md"):
+        for p in kok.rglob("BEYİN/*.md"):
             ad = _nfc(p.name)
             if alan_dosyasi_mi(ad):
-                if ad == "Alan.md":
-                    ad_dosyadan = _nfc(p.parent.name)
-                else:
-                    ad_dosyadan = ad[: -len(ALAN_SONEK)]
+                ad_dosyadan = _nfc(p.parent.parent.name)
                 bulunan.append((alan_adi_oku(p, ad_dosyadan), p))
     bulunan.sort(key=lambda x: x[0])
     return bulunan
@@ -504,29 +497,27 @@ def yapi_taramasi() -> dict:
         oksuz.append(_nfc(str(rel)))
 
     # 2) Proje çekirdeği ve 3) çift yönlü link
-    # Sade çekirdek adları ("Context.md" ...) ve eski önekli adlar ("<Ad> Context.md")
-    # ikisi de geçerlidir; hangisi varsa cekirdek() bulur (öneklendirme kuralı kalktı).
-    CEKIRDEK_SADE = {"Context.md", "Kararlar.md", "PRD.md", "Yönerge.md", "Proje.md", "Alan.md"}
+    # Proje klasöründe BEYİN alt klasörü yok; çekirdek adları sadedir (Proje.md, Durum.md, ...).
+    CEKIRDEK_SADE = {"Proje.md", "Durum.md", "Kararlar.md", "PRD.md", "Kurallar.md"}
     proje_eksik: list[str] = []
     link_tek_yon: list[str] = []
     projeler = VAULT / "PROJELER"
     if projeler.is_dir():
         for d in sorted(x for x in projeler.iterdir() if x.is_dir() and not x.name.startswith(".")):
             ad = _nfc(d.name)
-            for son in PROJE_CEKIRDEK:
-                tur = "Proje" if son == "— Proje" else son
-                if cekirdek(d, ad, tur) is None:
+            for tur in PROJE_CEKIRDEK:
+                if cekirdek(d, tur) is None:
                     proje_eksik.append(f"PROJELER/{ad}: {tur}.md yok")
             cekirdek_dosyalari = {
-                f.name for son in PROJE_CEKIRDEK
-                for f in [cekirdek(d, ad, "Proje" if son == "— Proje" else son)]
+                f.name for tur in PROJE_CEKIRDEK
+                for f in [cekirdek(d, tur)]
                 if f is not None
             }
-            yonerge_dosyasi = cekirdek(d, ad, "Yönerge")
-            if yonerge_dosyasi is not None:
-                cekirdek_dosyalari.add(yonerge_dosyasi.name)
-            context = cekirdek(d, ad, "Context")
-            alt_sayfalar = _bolum_hedefleri(context, "## Alt Sayfalar") if context is not None else set()
+            kurallar_dosyasi = cekirdek(d, "Kurallar")
+            if kurallar_dosyasi is not None:
+                cekirdek_dosyalari.add(kurallar_dosyasi.name)
+            durum = cekirdek(d, "Durum")
+            alt_sayfalar = _bolum_hedefleri(durum, "## Alt Sayfalar") if durum is not None else set()
             for p in sorted(d.rglob("*.md")):
                 dosya_adi = _nfc(p.name)
                 rel = _nfc(str(p.relative_to(VAULT)))
@@ -534,18 +525,18 @@ def yapi_taramasi() -> dict:
                     continue
                 govde_stem = _nfc(p.stem).casefold()
                 if govde_stem not in alt_sayfalar:
-                    link_tek_yon.append(f"{rel}: Context'in '## Alt Sayfalar' listesinde yok")
+                    link_tek_yon.append(f"{rel}: Durum'un '## Alt Sayfalar' listesinde yok")
                 try:
                     icerik = p.read_text(encoding="utf-8", errors="replace")
                 except OSError:
                     continue
                 icerik_kucuk = _nfc(icerik).casefold()
-                if f"[[{ad} context".casefold() not in icerik_kucuk \
-                        and "[[context" not in icerik_kucuk \
-                        and f"[[projeler/{ad.casefold()}/context".casefold() not in icerik_kucuk:
-                    link_tek_yon.append(f"{rel}: içinde Context geri linki yok")
+                if f"[[{ad} durum".casefold() not in icerik_kucuk \
+                        and "[[durum" not in icerik_kucuk \
+                        and f"[[projeler/{ad.casefold()}/durum".casefold() not in icerik_kucuk:
+                    link_tek_yon.append(f"{rel}: içinde Durum geri linki yok")
 
-    # 4) Alanlar: tetik satırı, Context ve Kararlar
+    # 4) Alanlar: tetik satırı, Durum ve Kararlar (BEYİN/ altında)
     alanlar = _alanlari_bul()
     alan_eksik: list[str] = []
     for ad, sayfa in alanlar:
@@ -556,12 +547,13 @@ def yapi_taramasi() -> dict:
             bas = ""
         if not re.search(r"(?m)^tetik\s*:", bas):
             alan_eksik.append(f"{rel}: 'tetik:' satırı yok")
-        for son in ("Context", "Kararlar"):
-            if cekirdek(sayfa.parent, ad, son) is None:
-                alan_eksik.append(f"{rel}: aynı klasörde {son}.md yok")
+        for tur in ("Durum", "Kararlar"):
+            if alan_cekirdek(sayfa.parent, tur) is None:
+                alan_eksik.append(f"{rel}: aynı klasörde (BEYİN/) {tur}.md yok")
 
     # 5) Alan kapsamı: İŞ altındaki her klasör bir alana bağlı olmalı
-    alan_klasorleri = {p.parent.resolve() for _, p in alanlar}
+    # Alan klasörü BEYİN'in üst klasörüdür (sayfa BEYİN/Alan.md).
+    alan_klasorleri = {p.parent.parent.resolve() for _, p in alanlar}
     kapsam: list[str] = []
     is_kok = VAULT / "İŞ"
     if is_kok.is_dir():

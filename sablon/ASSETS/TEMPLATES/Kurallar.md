@@ -1,7 +1,7 @@
-# <Proje> — Yönerge
+# <Proje> — Kurallar
 
 Yalnız bu projeye özel kurallar. Üslup ve ortak düzen anayasada; burada tekrarlanmaz.
-Proje bilgisi ve durumu burada değil `PROJELER/<Proje>/<Proje> Context.md`'de.
+Proje bilgisi ve durumu burada değil `PROJELER/<Proje>/Durum.md`'de.
 
 **Proje klasörü (kod):** <yol>  **Proje beyni (vault):** `PROJELER/<Proje>/`  **Repo:** <url>, <özel/açık>
 

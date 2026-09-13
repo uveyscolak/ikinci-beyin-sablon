@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Kullanıcının istemi bir projeye ya da çalışma alanına değiniyorsa onun yönergesini
+"""Kullanıcının istemi bir projeye ya da çalışma alanına değiniyorsa onun kurallarını
 ve güncel durumunu enjekte eder."""
 from __future__ import annotations
 
@@ -11,36 +11,31 @@ import sys
 import unicodedata
 from pathlib import Path
 
-YONERGE_TAVAN = 12000
+KURALLAR_TAVAN = 12000
 DURUM_TAVAN = 8000
 TOPLAM_TAVAN = 40000
 EN_FAZLA_PROJE = 2
 EN_FAZLA = 3
 ALAN_KOKLERI = ["İŞ", "KİŞİSEL"]
-ALAN_DERINLIK = 3
+ALAN_DERINLIK = 4
 EN_KISA_TETIK = 3
-ALAN_SONEK = " — Alan.md"
 RE_FRONTMATTER_AD = re.compile(r"^ad:\s*(.+)$", re.MULTILINE)
 
 
-def cekirdek(klasor, ad, tur):
-    """`Context`, `Kararlar`, `PRD`, `Yönerge`, `Proje`, `Alan` dosyasını bulur.
-    Önce sade ad (Context.md), yoksa eski önekli ad (<Ad> Context.md)."""
+def proje_cekirdek(klasor, tur):
+    """Proje klasöründe `Durum`, `Kararlar`, `PRD`, `Kurallar` dosyasını bulur (BEYİN alt klasörü yok)."""
     sade = klasor / f"{tur}.md"
-    if sade.is_file():
-        return sade
-    onekli = klasor / f"{ad} {tur}.md"
-    if onekli.is_file():
-        return onekli
-    if tur in ("Proje", "Alan"):
-        tireli = klasor / f"{ad} — {tur}.md"
-        if tireli.is_file():
-            return tireli
-    return None
+    return sade if sade.is_file() else None
+
+
+def alan_cekirdek(beyin_klasor, tur):
+    """Alanın `BEYİN/` klasöründe `Durum`, `Kararlar`, `Kurallar`, `Alan` dosyasını bulur."""
+    sade = beyin_klasor / f"{tur}.md"
+    return sade if sade.is_file() else None
 
 
 def alan_dosyasi_mi(isim):
-    return isim == "Alan.md" or isim.endswith(" — Alan.md")
+    return isim == "Alan.md"
 
 
 def alan_adi_oku(sayfa, ad_dosyadan):
@@ -209,7 +204,11 @@ def tetikleri_oku(yol: Path) -> list[str]:
 
 
 def alanlari_bul(vault: Path, kokler: list[str]) -> list[tuple[str, Path]]:
-    """Alan köklerinin altında en çok ALAN_DERINLIK katmanda `<Ad> — Alan.md` arar."""
+    """Alan köklerinin altında en çok ALAN_DERINLIK katmanda `BEYİN/Alan.md` arar.
+
+    Alan klasörü BEYİN'in üst klasörüdür; alanın adı o klasörün adı ya da
+    Alan.md'nin frontmatter'ındaki `ad:` alanı. "BEYİN" hiçbir zaman alan adı sayılmaz.
+    """
     bulunan: list[tuple[str, Path]] = []
     for kok_adi in kokler:
         kok = vault / kok_adi
@@ -222,28 +221,27 @@ def alanlari_bul(vault: Path, kokler: list[str]) -> list[tuple[str, Path]]:
                 altlar[:] = []
             else:
                 altlar[:] = [a for a in altlar if not a.startswith(".")]
+            if simdiki.name != "BEYİN":
+                continue
             for dosya in dosyalar:
                 isim = nfc(dosya)
                 if alan_dosyasi_mi(isim):
                     sayfa = simdiki / dosya
-                    if isim == "Alan.md":
-                        ad_dosyadan = simdiki.name
-                    else:
-                        ad_dosyadan = isim[: -len(ALAN_SONEK)]
+                    ad_dosyadan = simdiki.parent.name
                     bulunan.append((alan_adi_oku(sayfa, ad_dosyadan), sayfa))
     bulunan.sort(key=lambda p: p[0])
     return bulunan
 
 
-def govde(baslik: str, konum: str, yonerge: Path | None, durum: Path | None, durum_adi: str,
+def govde(baslik: str, konum: str, kurallar: Path | None, durum: Path | None, durum_adi: str,
           yok_notu: str, ne: str, bilgi: str = "") -> str:
     bolum = [baslik, f"Klasör: {konum}"]
-    if yonerge is not None and yonerge.is_file():
+    if kurallar is not None and kurallar.is_file():
         try:
             bolum.append(
-                "\n--- Yönerge ---\n"
-                + kirp(yonerge.read_text(encoding="utf-8"), YONERGE_TAVAN,
-                       "[not: yönerge kırpıldı, tamamı için dosyayı aç]")
+                "\n--- Kurallar ---\n"
+                + kirp(kurallar.read_text(encoding="utf-8"), KURALLAR_TAVAN,
+                       "[not: kurallar kırpıldı, tamamı için dosyayı aç]")
             )
         except OSError:
             pass
@@ -306,7 +304,7 @@ def main() -> int:
     # değildir: orada arşiv, deneme ve taşınmış proje kalıntıları da duruyor ve
     # bunlar sohbette geçince boş yönerge enjekte ediyordu. Kod kökü yalnız
     # projenin kod konumunu yazmak için kullanılır (aşağıda `konum`).
-    # Bir klasörü proje yapan şey Context'idir: `<X> Context.md` yoksa proje değildir.
+    # Bir klasörü proje yapan şey Durum'udur: `Durum.md` yoksa proje değildir.
     vault_projeler = vault / "PROJELER"
     adlar_kume = set()
     if vault_projeler.is_dir():
@@ -314,7 +312,7 @@ def main() -> int:
             if not d.is_dir() or d.name.startswith("."):
                 continue
             ad_nfc = nfc(d.name)
-            if cekirdek(d, ad_nfc, "Context") is not None:
+            if proje_cekirdek(d, "Durum") is not None:
                 adlar_kume.add(ad_nfc)
     adlar = sorted(adlar_kume)
 
@@ -372,10 +370,10 @@ def main() -> int:
         proje_klasor = vault / "PROJELER" / ad
         metin = govde(
             f"[Proje: {ad}]", konum,
-            cekirdek(proje_klasor, ad, "Yönerge"),
-            cekirdek(proje_klasor, ad, "Context"),
-            f"{ad} Context.md",
-            "Bu projenin özel yönergesi yok; CLAUDE.md'deki ortak çalışma düzeni geçerli.",
+            proje_cekirdek(proje_klasor, "Kurallar"),
+            proje_cekirdek(proje_klasor, "Durum"),
+            "Durum.md",
+            "Bu projenin özel kuralları yok; CLAUDE.md'deki ortak çalışma düzeni geçerli.",
             "projenin",
             bilgi_blogu(kayitlar, bilgi_anahtarlari(ad, [])),
         )
@@ -385,13 +383,15 @@ def main() -> int:
         verilen.append(ad)
         toplam += len(metin)
     for ad, sayfa in eslesen_alan:
-        klasor = sayfa.parent
+        # Alan adı BEYİN'in üst klasöründen gelir; sayfa BEYİN/Alan.md'dir.
+        beyin_klasor = sayfa.parent
+        alan_klasor = beyin_klasor.parent
         metin = govde(
-            f"[Alan: {ad}]", str(klasor),
-            cekirdek(klasor, ad, "Yönerge"),
-            cekirdek(klasor, ad, "Context"),
-            f"{ad} Context.md",
-            "Bu alanın özel yönergesi yok; CLAUDE.md'deki ortak çalışma düzeni geçerli.",
+            f"[Alan: {ad}]", str(alan_klasor),
+            alan_cekirdek(beyin_klasor, "Kurallar"),
+            alan_cekirdek(beyin_klasor, "Durum"),
+            "BEYİN/Durum.md",
+            "Bu alanın özel kuralları yok; CLAUDE.md'deki ortak çalışma düzeni geçerli.",
             "alanın",
             bilgi_blogu(kayitlar, bilgi_anahtarlari(ad, tetikleri_oku(sayfa))),
         )

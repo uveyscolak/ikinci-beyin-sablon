@@ -109,7 +109,7 @@ Kancalar globaldir: hangi klasörde çalışılırsa çalışılsın hafıza bu 
 Senin payın:
 
 - `HAFIZA/Açık Konular.md` — yalnız bekleyen iş, madde en fazla üç satır; kapananı
-  `HAFIZA/Arşiv/Açık Konular Arşivi.md` sonuna taşı, projenin durumunu kendi Context'ine yaz
+  `HAFIZA/Arşiv/Açık Konular Arşivi.md` sonuna taşı, projenin durumunu kendi Durum dosyasına yaz
 - `HAFIZA/Günce.md` — önemli bir şey olduysa kısa bir giriş
 - `HAFIZA/Kurallar.md` — <AD> seni düzelttiğinde aynı turda tek cümle kural yaz, nedeniyle:
   davranışsa buraya, ilke ya da biçimse bu anayasaya. Mekanik bir kuralsa denetleyiciye de
@@ -145,7 +145,7 @@ değişkeninden oku.
 | `EĞİTİMLER/KENDİ NOTLARIM/` | Kendi eğitim notları | İkiniz |
 | `İŞ/` | İş notları, playbook'lar, iş alanları | İkiniz |
 | `KİŞİSEL/` | Kimlik, kişisel notlar, kişisel alanlar | <AD> |
-| `PROJELER/` | Proje beyinleri: her proje bir klasör (sayfa, yönerge, PRD, Kararlar, Context); kökte yalnız genel sayfalar | Sen |
+| `PROJELER/` | Proje beyinleri: her proje bir klasör (sayfa, Kurallar, PRD, Kararlar, Durum); kökte yalnız genel sayfalar | Sen |
 | `ASSETS/` | Görseller ve Obsidian şablonları (`TEMPLATES/`) | İkiniz |
 | `index.md` | Bütün notların kataloğu; makine üretir (`index-uret.py`, her oturum sonunda), giriş metni `.claude/index-giris.md` | Makine |
 
@@ -196,20 +196,24 @@ başına proje adını yazmak kenar çubuğunda adları uzatır ve dar ekranda h
 Ayırt etme işi linkte çözülür, adda değil.
 
 - **`Proje.md`** — vitrin: ne, neden var, kod nerede, git durumu. Canlı durumu tekrarlamaz.
-- **`Yönerge.md`** — yalnız o projeye özel, tartışmaya kapalı kurallar. Gerekmedikçe açılmaz.
+- **`Kurallar.md`** — yalnız o projeye özel, tartışmaya kapalı kurallar. Gerekmedikçe açılmaz.
+  (`HAFIZA/Kurallar.md` genel davranış kurallarıdır, bu ondan ayrıdır.)
 - **`PRD.md` = HEDEF.** Kurulumda yazılan donmuş spec: problem, kapsam, kabul kriterleri,
-  kapsam dışı. Günlük iş buradan değil Context'ten yürür.
+  kapsam dışı. Günlük iş buradan değil Durum'dan yürür.
 - **`Kararlar.md` = NEDEN.** Append-only. Bir seçim yapıldığında tarih, ne, neden ve varsa
   "denedik olmadı". Gerekçe yalnızca burada yaşar. Eskiyi silme, geçersiz kalsa bile tarihiyle dursun.
-- **`Context.md` = ŞU AN.** Projenin o anki hali: durum, nerede kalındı, sıradaki adım,
+- **`Durum.md` = ŞU AN.** Projenin o anki hali: durum, nerede kalındı, sıradaki adım,
   açık sorular, bitiş çizgisi. Gerekçeyi buraya kopyalama, karara link ver.
 - Diğer notlar (mimari, araştırma, roadmap) aynı klasörde, aynı sade adla.
 
-Alanlar da aynı düzeni kullanır: `Alan.md`, `Context.md`, `Kararlar.md`, gerekirse `Yönerge.md`.
+Alanlar da aynı dosyaları kullanır ama hepsi `BEYİN/` alt klasöründe durur: `BEYİN/Alan.md`,
+`BEYİN/Durum.md`, `BEYİN/Kararlar.md`, gerekirse `BEYİN/Kurallar.md`. **neden:** alan klasöründe
+kullanıcının okuduğu iş dosyaları da durur; beyin dosyaları tek klasörde toplanınca kapalı kalır, göz
+iş dosyasında olur. Projede alt klasör yoktur, orada zaten başka dosya yoktur.
 
 ### Link yazımı — her zaman tam yol
 
-Vault'ta on yedi tane `Context.md` ve on yedi tane `Kararlar.md` vardır. Kısa link (`[[Kararlar]]`)
+Vault'ta proje ve alan sayısı kadar `Durum.md` ve `Kararlar.md` vardır. Kısa link (`[[Kararlar]]`)
 bunlardan hangisine gideceğini bilemez; Obsidian birini seçer ama seçimi tesadüfidir ve yeni dosya
 eklendiğinde değişebilir. 2026-09-12'de iki ayrı `Kararlar.md` ile test edildi: kısa link ikisinden
 birine gitti, hangisine gideceği tahmin edilemedi.
@@ -217,7 +221,7 @@ birine gitti, hangisine gideceği tahmin edilemedi.
 Bu yüzden **her link tam yolla yazılır, görünen metin kısa tutulur**:
 
     [[İŞ/GÖRSEL ÜRETİM/Kararlar|Kararlar]]
-    [[PROJELER/Shopify/Context|Context]]
+    [[PROJELER/Shopify/Durum|Durum]]
 
 Ekranda yalnız "Kararlar" görünür, hedef kesindir. Kısa link yalnız vault'ta tek örneği olan
 dosyalar için serbesttir (`[[Projeler]]`, `[[Minval Takı]]`).
@@ -228,15 +232,16 @@ Genel sayfalar (`Projeler.md` hub'ı) `PROJELER/` kökünde kalır, alt klasöre
 
 Her konu proje değildir. Reklam, kişisel marka, video edit, görsel üretim gibi kodu olmayan
 işler **alan**dır ve yaşadıkları yerde durur: `İŞ/` veya `KİŞİSEL/` altında bir klasör, içinde
-`<Ad> — Alan.md` sayfası, `<Ad> Yönerge.md` (gerekirse), `<Ad> Context.md`, `<Ad> Kararlar.md`.
+`BEYİN/` alt klasörü: `Alan.md`, `Durum.md`, `Kararlar.md`, gerekirse `Kurallar.md`; dosya adına
+alan adı eklenmez.
 Sayfanın başındaki `tetik:` listesi o alanın anahtar kelimeleridir; sohbette biri geçince
-(örneğin "reklamları kontrol edelim") alanın yönergesi ve durumu kendiliğinden gelir, ad
+(örneğin "reklamları kontrol edelim") alanın kuralları ve durumu kendiliğinden gelir, ad
 söylemek gerekmez. Konuşmak için proje açılmaz; kod yoksa alan açılır.
 
 ### Yeni proje veya alan
 
 "Şu adla proje kur" ya da "şu konuda alan aç" demek yeter; `proje-kur` skill'i klasörleri,
-dosyaları, projede git deposunu ve hub satırını açar, sonra PRD veya Context sohbetle
+dosyaları, projede git deposunu ve hub satırını açar, sonra PRD veya Durum sohbetle
 doldurulur. Elle şablon kopyalanmaz. Detay: anayasa §8 ve `proje-kur` skill'i.
 
 ### Kurallar
@@ -244,7 +249,7 @@ doldurulur. Elle şablon kopyalanmaz. Detay: anayasa §8 ve `proje-kur` skill'i.
 - Sırlar vault'a girmez; anahtarlar `GİZLİ/` altında.
 - Bilgi kopyalanmaz, işaret edilir; kaynak okunur, çıkarımı yazılır, hamı saklanmaz.
 - Kapsam bekçiliği: PRD'nin kapsam dışıyla çelişen isteği sessizce yapma, sor.
-- "Bitti" demeden PRD'deki kabul kriterlerine ve Context'teki bitiş çizgisine bak.
+- "Bitti" demeden PRD'deki kabul kriterlerine ve Durum'daki bitiş çizgisine bak.
 - Çelişki çıktığında ikiye ayır: olgu yanlışsa üzerine yaz ve eskiyi sil; yön henüz netleşmemişse
   silme, yarışan halleri tarihiyle tut, netleşince tek doğruya indir.
 - Yeni özellik geldiğinde doğrudan koda başlama: önce açık uçlu konuş, belirsizliği kapat, sonucu
@@ -257,13 +262,13 @@ doldurulur. Elle şablon kopyalanmaz. Detay: anayasa §8 ve `proje-kur` skill'i.
   oturum başında bağlama düşer; commit attığın oturumun sonunda ayrıca tek cümleyle hatırlat.
   Vault'u makine commit'ler.
 
-Bir projenin adı ya da bir alanın tetik kelimesi sohbette geçince o proje veya alanın yönergesi
-ve Context'i oturuma kendiliğinden bağlama gelir; aynı blokta `BİLGİ/` içindeki ilgili kavram
+Bir projenin adı ya da bir alanın tetik kelimesi sohbette geçince o proje veya alanın Kurallar
+ve Durum dosyası oturuma kendiliğinden bağlama gelir; aynı blokta `BİLGİ/` içindeki ilgili kavram
 makaleleri de listelenir (en fazla beş). Proje adları `PROJELER/` altındaki
-klasörlerden, alanlar `İŞ/` ve `KİŞİSEL/` altındaki `— Alan.md` sayfalarından okunur; ayrı
+klasörlerden, alanlar `İŞ/` ve `KİŞİSEL/` altındaki `BEYİN/Alan.md` sayfalarından okunur; ayrı
 kayıt yoktur. İsteğe bağlı: sistemin kendisi için de bir proje açılabilir.
 
-| Proje | Ne | Yönerge |
+| Proje | Ne | Kurallar |
 |---|---|---|
 | <Proje> | <tek satır> | var / yok |
 
@@ -272,10 +277,10 @@ kayıt yoktur. İsteğe bağlı: sistemin kendisi için de bir proje açılabili
 ## 9. Bakım
 
 - Bir kural tek katmanda yaşar.
-- Yeni bir projeye özel kural doğduğunda `PROJELER/<Proje>/<Proje> Yönerge.md` açılır, buraya yazılmaz.
-- **Yönergeye üslup, dil, biçim veya genel davranış kuralı yazılmaz.** Yönerge yalnız o işe özel
+- Yeni bir projeye özel kural doğduğunda `PROJELER/<Proje>/Kurallar.md` açılır, buraya yazılmaz.
+- **Proje ve alan Kurallar dosyasına üslup, dil, biçim veya genel davranış kuralı yazılmaz.** O dosya yalnız o işe özel
   teknik kural taşır: hangi dosya önce okunur, hangi araç kullanılır, neye dokunulmaz. Bir
-  yönerge "çelişirse bu geçerlidir" diyemez; anayasa her zaman üsttedir.
+  Kurallar dosyası "çelişirse bu geçerlidir" diyemez; anayasa her zaman üsttedir.
 - Yıkıcı işlemden önce hedefe bak ve yedeğin olduğunu doğrula. Yedekler vault dışında durur
   (`beyin.json` içindeki `yedek`); vault'a yedek dosyası konmaz, git'e girer.
 - **Denetleyici kancalar.** `cevap-denetle.py` cevap bitmeden son mesajı tarar (dosya linki
