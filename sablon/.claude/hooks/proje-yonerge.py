@@ -152,6 +152,113 @@ def bilgi_blogu(kayitlar: list[tuple[str, str, str]], anahtarlar: list[str]) -> 
     return "\n".join(satirlar)
 
 
+# Eğitim kaynakları bloğu: alan/proje tetiklenince Durum'daki Kaynaklar maddeleri ve
+# EĞİTİMLER/YOUTUBE'daki ilgili videolar tek blokta gösterilir; kullanıcı hatırlatmasın.
+EGITIM_TAVAN = 3000
+RE_ILK_LINK = re.compile(r"\[\[([^|\]]+)")
+
+
+def youtube_alan_maddeleri(vault: Path, alan_klasor_rel: str) -> list[str]:
+    """`EĞİTİMLER/YOUTUBE/00 İçindekiler.md` tablosunda Alan sütunu verilen alan klasörüne
+    (`<alan klasörü>/BEYİN/Alan`) giden satırları `- [[yol|başlık]] — özet` biçiminde döner.
+
+    Yol eşleşmesi yeter, alias'a bakılmaz. Tablo hücreleri kaçışlı boru içerebiliyor
+    (`\\|` bir wiki-link içinde), bu yüzden kaçışsız borudan bölünür (RE_KACISSIZ_BORU).
+    """
+    try:
+        metin = (vault / "EĞİTİMLER" / "YOUTUBE" / "00 İçindekiler.md").read_text(encoding="utf-8")
+    except OSError:
+        return []
+    hedef = nfc(f"{alan_klasor_rel}/BEYİN/Alan").casefold()
+    sonuc = []
+    for satir in metin.splitlines():
+        s = satir.strip()
+        if not s.startswith("|") or set(s) <= {"|", "-", " "}:
+            continue
+        hucreler = [p.strip() for p in RE_KACISSIZ_BORU.split(s)]
+        hucreler = [h for h in hucreler if h or hucreler.index(h) not in (0, len(hucreler) - 1)]
+        # Baştaki ve sondaki boş hücreler (satırın kenar boruları) atılır.
+        if hucreler and hucreler[0] == "":
+            hucreler = hucreler[1:]
+        if hucreler and hucreler[-1] == "":
+            hucreler = hucreler[:-1]
+        if len(hucreler) < 5:
+            continue
+        video_hucre, _kanal, _sure, alan_hucre, ozet_hucre = hucreler[:5]
+        alan_link = RE_ILK_LINK.search(alan_hucre)
+        if not alan_link:
+            continue
+        if nfc(alan_link.group(1).strip().rstrip("\\")).casefold() != hedef:
+            continue
+        video_link = RE_ILK_LINK.search(video_hucre)
+        if not video_link:
+            continue
+        not_yolu = nfc(video_link.group(1).strip().rstrip("\\"))
+        baslik_m = re.search(r"\|([^\]]+)\]\]", video_hucre)
+        baslik = nfc(baslik_m.group(1).strip()) if baslik_m else not_yolu
+        sonuc.append(f"[[{not_yolu}|{baslik}]] — {nfc(ozet_hucre.strip())}")
+    return sonuc
+
+
+def egitim_kaynaklari_blogu(ad: str, durum_maddeler: list[str], youtube_maddeler: list[str]) -> str:
+    """Durum'daki Kaynaklar maddeleri ve YouTube eşleşmelerini tek blokta birleştirir.
+
+    YouTube maddesinin not yolu Durum'da zaten geçiyorsa tekrar eklenmez. İki kaynak da
+    boşsa boş döner (blok hiç basılmaz). EGITIM_TAVAN'ı aşarsa madde sayısı kesilir.
+    """
+    if not durum_maddeler and not youtube_maddeler:
+        return ""
+    gorulen_yol = set()
+    for madde in durum_maddeler:
+        m = RE_ILK_LINK.search(madde)
+        if m:
+            gorulen_yol.add(nfc(m.group(1).strip()).casefold())
+
+    maddeler = list(durum_maddeler)
+    for madde in youtube_maddeler:
+        m = RE_ILK_LINK.search(madde)
+        yol = nfc(m.group(1).strip()).casefold() if m else None
+        if yol and yol in gorulen_yol:
+            continue
+        maddeler.append(madde)
+        if yol:
+            gorulen_yol.add(yol)
+
+    baslik = f"\n[Eğitim kaynakları — {ad}]"
+    kuyruk = (
+        "\nBu alanda plan, script, strateji ya da içerik yazmadan önce ilgili kaynağı oku; "
+        "kullanıcının söylemesini bekleme. Uzun kaynakta ilgili bölümü `arastirmaci` ajanına "
+        "çıkarttır. Kaynaklar birbiriyle çelişiyorsa iki planı da sun. Kaynağın dediğine "
+        "katılmıyorsan kendi fikrini ayrı ve işaretli ver. Kurallar dosyasındaki \"önce oku\" "
+        "dosyaları da bu listenin parçasıdır."
+    )
+    gosterilecek = list(maddeler)
+    while gosterilecek:
+        gövde_satirlari = "\n".join(f"- {m}" for m in gosterilecek)
+        eksik = len(maddeler) - len(gosterilecek)
+        kesme_notu = f"\n[not: {eksik} kaynak daha, Durum dosyasındaki Kaynaklar listesine bak]" if eksik else ""
+        blok = basilik_birlestir(baslik, gövde_satirlari, kesme_notu, kuyruk)
+        if len(blok) <= EGITIM_TAVAN or len(gosterilecek) == 1:
+            return blok
+        gosterilecek = gosterilecek[:-1]
+    return ""
+
+
+def basilik_birlestir(baslik: str, govde_satirlari: str, kesme_notu: str, kuyruk: str) -> str:
+    return f"{baslik}\n{govde_satirlari}{kesme_notu}{kuyruk}"
+
+
+def durum_kaynak_maddeleri(durum: Path | None) -> list[str]:
+    """Durum dosyasının TAMAMINDAN `## Kaynaklar` madde satırlarını okur (kırpmadan bağımsız)."""
+    if durum is None or not durum.is_file():
+        return []
+    try:
+        _, maddeler = durum_kaynaklar_ayikla(durum.read_text(encoding="utf-8"))
+    except OSError:
+        return []
+    return maddeler
+
+
 def tetikleri_oku(yol: Path) -> list[str]:
     """Dosyanın başındaki YAML frontmatter'dan `tetik:` listesini çıkarır.
 
@@ -233,8 +340,35 @@ def alanlari_bul(vault: Path, kokler: list[str]) -> list[tuple[str, Path]]:
     return bulunan
 
 
+RE_BASLIK = re.compile(r"(?m)^##\s+(.+?)\s*$")
+
+
+def durum_kaynaklar_ayikla(durum_metni: str) -> tuple[str, list[str]]:
+    """Durum metnindeki `## Kaynaklar` bölümünü ayıklar.
+
+    Döner: (kaynaklar bölümü çıkarılmış metin, madde satırları listesi ("- " sonrası)).
+    Bölüm dosyanın sonunda olduğu için DURUM_TAVAN kırpması onu düşürüyordu; bu yüzden
+    kırpmadan önce ayrı çıkarılır, kırpma boşa gitmez.
+    """
+    eslesmeler = list(RE_BASLIK.finditer(durum_metni))
+    for i, m in enumerate(eslesmeler):
+        if m.group(1).strip().casefold() != "kaynaklar":
+            continue
+        bas = m.start()
+        bit = eslesmeler[i + 1].start() if i + 1 < len(eslesmeler) else len(durum_metni)
+        bolum = durum_metni[m.end():bit]
+        maddeler = [
+            satir.strip()[2:].strip()
+            for satir in bolum.splitlines()
+            if satir.strip().startswith("- ")
+        ]
+        kalan = (durum_metni[:bas] + durum_metni[bit:]).strip()
+        return kalan, maddeler
+    return durum_metni, []
+
+
 def govde(baslik: str, konum: str, kurallar: Path | None, durum: Path | None, durum_adi: str,
-          yok_notu: str, ne: str, bilgi: str = "") -> str:
+          yok_notu: str, ne: str, bilgi: str = "", egitim: str = "") -> str:
     bolum = [baslik, f"Klasör: {konum}"]
     if kurallar is not None and kurallar.is_file():
         try:
@@ -249,13 +383,16 @@ def govde(baslik: str, konum: str, kurallar: Path | None, durum: Path | None, du
         bolum.append("\n" + yok_notu)
     if durum is not None and durum.is_file():
         try:
+            durum_metni, _ = durum_kaynaklar_ayikla(durum.read_text(encoding="utf-8"))
             bolum.append(
                 "\n--- " + durum_adi + f" ({ne} şu anki hâli) ---\n"
-                + kirp(durum.read_text(encoding="utf-8"), DURUM_TAVAN,
+                + kirp(durum_metni, DURUM_TAVAN,
                        "[not: durum kırpıldı, tamamı için dosyayı aç]")
             )
         except OSError:
             pass
+    if egitim:
+        bolum.append(egitim)
     if bilgi:
         bolum.append(bilgi)
     return "\n".join(bolum)
@@ -368,14 +505,22 @@ def main() -> int:
     for ad in eslesen_proje:
         konum = str(projeler_kok / ad) if projeler_kok is not None else "kod klasörü yok"
         proje_klasor = vault / "PROJELER" / ad
+        durum_dosyasi = proje_cekirdek(proje_klasor, "Durum")
+        # Proje klasörünün İçindekiler tablosunda alan sütunuyla eşleşen bir yolu yoktur
+        # (o sütun yalnız BEYİN/Alan.md hedeflerini gösterir); YouTube tarafı doğal olarak boş.
+        egitim = egitim_kaynaklari_blogu(
+            ad, durum_kaynak_maddeleri(durum_dosyasi),
+            youtube_alan_maddeleri(vault, f"PROJELER/{ad}"),
+        )
         metin = govde(
             f"[Proje: {ad}]", konum,
             proje_cekirdek(proje_klasor, "Kurallar"),
-            proje_cekirdek(proje_klasor, "Durum"),
+            durum_dosyasi,
             "Durum.md",
             "Bu projenin özel kuralları yok; CLAUDE.md'deki ortak çalışma düzeni geçerli.",
             "projenin",
             bilgi_blogu(kayitlar, bilgi_anahtarlari(ad, [])),
+            egitim,
         )
         if parcalar and toplam + len(metin) > TOPLAM_TAVAN:
             break
@@ -386,14 +531,21 @@ def main() -> int:
         # Alan adı BEYİN'in üst klasöründen gelir; sayfa BEYİN/Alan.md'dir.
         beyin_klasor = sayfa.parent
         alan_klasor = beyin_klasor.parent
+        durum_dosyasi = alan_cekirdek(beyin_klasor, "Durum")
+        alan_klasor_rel = str(alan_klasor.relative_to(vault))
+        egitim = egitim_kaynaklari_blogu(
+            ad, durum_kaynak_maddeleri(durum_dosyasi),
+            youtube_alan_maddeleri(vault, alan_klasor_rel),
+        )
         metin = govde(
             f"[Alan: {ad}]", str(alan_klasor),
             alan_cekirdek(beyin_klasor, "Kurallar"),
-            alan_cekirdek(beyin_klasor, "Durum"),
+            durum_dosyasi,
             "BEYİN/Durum.md",
             "Bu alanın özel kuralları yok; CLAUDE.md'deki ortak çalışma düzeni geçerli.",
             "alanın",
             bilgi_blogu(kayitlar, bilgi_anahtarlari(ad, tetikleri_oku(sayfa))),
+            egitim,
         )
         if parcalar and toplam + len(metin) > TOPLAM_TAVAN:
             break

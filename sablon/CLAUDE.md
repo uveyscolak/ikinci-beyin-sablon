@@ -98,7 +98,8 @@ Paragraf kuralı yine de geçerlidir: her cümle ayrı paragraf.
   liste değişince haber vermez, tek yol açılışta bakmaktır), yeni videonun transkriptini çıkarır
   (önce YouTube altyazısı, yoksa mlx-whisper), notu Sonnet'e yazdırır, özeti günlüğe `### Kaynak`
   bloğu olarak düşürür. Not ve ham transkript `EĞİTİMLER/YOUTUBE/` altında kalır; satın alınan
-  eğitimlerle aynı düzen, `egitim` skill'i ikisini de arar. Sonnet'in her notunu şef bir kez okur,
+  eğitimlerle aynı düzen, `egitim` skill'i ikisini de arar. Not ayrıca ait olduğu alanın Durum dosyasındaki `## Kaynaklar` listesine
+  bağlanır (§9). Sonnet'in her notunu şef bir kez okur,
   hatayı düzeltir, sonra `EĞİTİMLER/YOUTUBE/KUYRUK.md`'deki maddeyi siler; kanca kuyruğu açılışta
   önüne koyar. Tek seferlik makale ve haber bu kapıdan değil `kaynak` skill'inden girer. Liste
   adresi `beyin.json` → `youtube.liste`.
@@ -267,6 +268,14 @@ ve Durum dosyası oturuma kendiliğinden bağlama gelir; aynı blokta `BİLGİ/`
 makaleleri de listelenir (en fazla beş). Proje adları `PROJELER/` altındaki
 klasörlerden, alanlar `İŞ/` ve `KİŞİSEL/` altındaki `BEYİN/Alan.md` sayfalarından okunur; ayrı
 kayıt yoktur. İsteğe bağlı: sistemin kendisi için de bir proje açılabilir.
+
+**Eğitim kaynakları.** Bir alanın ya da projenin Durum dosyasındaki `## Kaynaklar` listesi o işin
+eğitim kaynaklarıdır: YouTube notları, damıtılmış eğitim çıktıları, dış rehberler. Kanca alan
+uyanınca bu listeyi tek satır özetle ayrı bir blokta basar. Kural: o alanda plan, script, strateji
+ya da içerik yazmadan önce ilgili kaynak okunur, kullanıcı söylemez (uzun kaynakta ilgili bölümü
+`arastirmaci` çıkarır). Kaynaklar birbiriyle çelişirse iki plan da sunulur. Kaynağın dediğine
+katılmıyorsan kendi fikrin ayrı ve işaretli verilir. Yeni kaynak doğunca listeye satır düşer: YouTube
+notunu `youtube-izle.py` bağlar, eğitim çıktısını sen bağlarsın.
 
 | Proje | Ne | Kurallar |
 |---|---|---|

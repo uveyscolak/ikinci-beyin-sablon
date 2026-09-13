@@ -313,6 +313,8 @@ Her başlığın altında ne yapıldığı, neden, dikkat edilecek yer. Araç ve
 - <birebir; yoksa bölümü atla>
 ===ÖZET===
 <Tek satır, en fazla 25 kelime: video ne öğretiyor. İçindekiler tablosuna girecek.>
+===BAKILIR===
+<Tek satır, 8-15 kelime: bu not hangi işi yaparken açılır. Örnek: "kurgu sırası, ses tasarımı ve animasyon kararlarında bakılır".>
 ===SON===
 
 ## Transkript
@@ -354,15 +356,15 @@ def sonnet_calistir(prompt: str, vault: Path) -> tuple[str | None, str | None]:
 
 def cikti_parcala(metin: str) -> dict | None:
     """===ALAN=== / ===NOT=== / ===GÜNLÜK=== / ===ÖZET=== bölümlerini ayırır."""
-    m = re.search(r"===ALAN===\s*(.*?)\s*===NOT===\s*(.*?)\s*===GÜNLÜK===\s*(.*?)\s*===ÖZET===\s*(.*?)\s*(?:===SON===|$)",
-                  metin, re.S)
+    m = re.search(r"===ALAN===\s*(.*?)\s*===NOT===\s*(.*?)\s*===GÜNLÜK===\s*(.*?)\s*===ÖZET===\s*(.*?)"
+                  r"\s*(?:===BAKILIR===\s*(.*?)\s*)?(?:===SON===|$)", metin, re.S)
     if not m:
         return None
-    alan, not_, gunluk, ozet = (x.strip() for x in m.groups())
+    alan, not_, gunluk, ozet, bakilir = (x.strip() if x else "" for x in m.groups())
     if len(not_) < 300 or len(gunluk) < 100:
         return None
     return {"alan": alan.strip("`- ").strip() or "-", "not": not_, "gunluk": gunluk,
-            "ozet": " ".join(ozet.split())}
+            "ozet": " ".join(ozet.split()), "bakilir": " ".join(bakilir.split())}
 
 
 def not_yaz(vault: Path, video: dict, parca: dict, kok_ad: str, transkript_adi: str,
@@ -414,6 +416,40 @@ def icindekilere_ekle(vault: Path, video: dict, kok_ad: str, alan: str, ozet: st
              f"{video.get('kanal') or '—'} | {dk} dk | {alan_h} | {ozet_h} | {bugun()} |\n")
     with p.open("a", encoding="utf-8") as f:
         f.write(satir)
+
+
+def kaynaklara_ekle(vault: Path, alan_yol: str, kok_ad: str, video: dict, ozet: str, bakilir: str) -> bool:
+    """Alanın BEYİN/Durum.md dosyasındaki `## Kaynaklar` listesine notu bağlar.
+
+    Kütüphanedeki not aynı kalır; alan kendi defterine "şu not benim" satırı düşer. Kanca alan
+    uyanınca bu listeyi ayrı blokta basar (anayasa §9). Aynı not iki kez eklenmez.
+    """
+    durum = vault / Path(alan_yol).parent / "Durum.md"
+    if not durum.exists():
+        return False
+    metin = durum.read_text(encoding="utf-8")
+    not_yolu = f"{KLASOR}/{kok_ad}"
+    if not_yolu in metin:
+        return False
+    kanal = video.get("kanal") or "—"
+    kisa = video["baslik"] if len(video["baslik"]) <= 60 else video["baslik"][:57].rsplit(" ", 1)[0] + "…"
+    madde = f"- [[{not_yolu}|{kanal} — {kisa}]] — {bakilir or ozet} · eklendi {bugun()}\n"
+    if re.search(r"^## Kaynaklar\s*$", metin, re.M):
+        # bölümün sonuna (bir sonraki ## başlığından önce) ekle
+        bas = re.search(r"^## Kaynaklar\s*$", metin, re.M).end()
+        sonraki = re.search(r"^## ", metin[bas:], re.M)
+        kes = bas + sonraki.start() if sonraki else len(metin)
+        govde = metin[bas:kes].rstrip("\n")
+        metin = metin[:bas] + govde + "\n" + madde + "\n" + metin[kes:]
+    else:
+        blok = "## Kaynaklar\n\n" + madde + "\n"
+        alt = re.search(r"^## Alt Sayfalar\s*$", metin, re.M)
+        if alt:
+            metin = metin[:alt.start()] + blok + metin[alt.start():]
+        else:
+            metin = metin.rstrip("\n") + "\n\n" + blok
+    durum.write_text(metin, encoding="utf-8")
+    return True
 
 
 def kuyruga_ekle(vault: Path, video: dict, kok_ad: str, transkript_adi: str, durum: str) -> None:
@@ -474,6 +510,8 @@ def isle(vault: Path, video: dict) -> tuple[bool, str]:
     not_yaz(vault, video, parca, kok_ad, t_ad, alan_listesi)
     gunluge_ekle(vault, video, parca["gunluk"])
     icindekilere_ekle(vault, video, kok_ad, parca["alan"], parca["ozet"])
+    if parca["alan"] in {y for y, _ in alan_listesi}:
+        kaynaklara_ekle(vault, parca["alan"], kok_ad, video, parca["ozet"], parca.get("bakilir", ""))
     kuyruga_ekle(vault, video, kok_ad, t_ad, "not-hazir")
     return True, f"not hazır ({kaynak}, {NOT_MODEL})"
 
