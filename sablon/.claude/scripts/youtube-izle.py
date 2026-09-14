@@ -381,13 +381,29 @@ def not_yaz(vault: Path, video: dict, parca: dict, kok_ad: str, transkript_adi: 
     yayin = video.get("yayin") or "?"
     basli = (f"# {video['baslik']} — {kanal}\n\n"
              f"> Kaynak: [YouTube]({video['url']}) · {kanal} · {dk} dk · {yayin} · "
-             f"Alan: {alan_link} · Eklendi {bugun()} · Notu Sonnet yazdı, kontrol bekliyor\n\n")
+             f"Alan: {alan_link} · Eklendi {bugun()} · Notu Sonnet yazdı, kontrol bekliyor\n\n"
+             f"{oynatici(video['url'])}\n\n")
     govde = parca["not"].rstrip() + "\n\n"
     kuyruk = f"## Transkript\n\n[[{TEKIL}/RAW/{transkript_adi}|Ham transkript]]\n"
     yol = vault / TEKIL / f"{kok_ad}.md"
     yol.parent.mkdir(parents=True, exist_ok=True)
     yol.write_text(basli + govde + kuyruk, encoding="utf-8")
     return yol
+
+
+
+def oynatici(url: str) -> str:
+    """Sayfa içinde izlenebilen gömülü YouTube çerçevesi.
+
+    Çıplak URL bu vault'ta gömülmüyor (2026-09-14 denendi), iframe her modda çalışır.
+    """
+    m = re.search(r"(?:v=|youtu\.be/|embed/)([A-Za-z0-9_-]{11})", url)
+    if not m:
+        return ""
+    return ('<iframe width="100%" height="460" src="https://www.youtube.com/embed/'
+            + m.group(1) + '" title="YouTube" frameborder="0" '
+            'allow="accelerometer; autoplay; clipboard-write; encrypted-media; '
+            'gyroscope; picture-in-picture" allowfullscreen></iframe>')
 
 
 def gunluge_ekle(vault: Path, video: dict, gunluk_govde: str) -> None:

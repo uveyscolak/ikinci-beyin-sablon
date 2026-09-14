@@ -23,6 +23,7 @@ Ne yazacaksın: "Claude Analizi". Bu bir özet DEĞİL; transkriptin insan konu�
 Kurallar:
 1. Eksiksizlik: derste konuyla ilgili söylenen her şey metinde olacak: her iddia ve gerekçesi, her adım, formül, kural, rakam, tarih, isim, araç, örnek, uyarı, öneri, soru-cevap. Anlatım sırası korunacak. "vb." veya "benzer örnekler" diye kısaltma yok; örnek varsa örnek yazılır.
 2. Atılacaklar: dolgu sözleri, aynı şeyin tekrarı (tek kez yaz), selamlaşma ve kapanış, teknik aksaklık ("ses geliyor mu"), konu dışı sohbet, konuşma dili bozuklukları. Anlatıcının kendi hayatından verdiği örnekler konu dışı DEĞİLDİR, alınır.
+2b. Kısaltma anlatımdan yapılır, bilgiden değil. Anlatıcı aynı sonuca çıkan bir şeyi üç satırda anlatmışsa sen tek cümlede yazarsın, ama o bilgi metinde durur. Şu dördü hiçbir koşulda kısaltılmaz ve atlanmaz: somut örnek (kişi, marka, film, olay adı), sayı ve ölçü (süre, fiyat, oran, adet), araç ve ürün adı, "şunu yapma" türü uyarı. Bir sıralama varsa bütün adımları yaz, ortadakini atlama.
 3. Ekleme yok: transkriptte olmayan hiçbir bilgi, yorum, değerlendirme, öneri, uyarlama yazılmaz. Anlatıcının iddiası doğrudan yazılır ama yeni iddia üretilmez. Whisper'ın açıkça yanlış yazdığı bir terim veya isim varsa doğrusu yazılır; emin değilsen olduğu gibi bırak.
 4. Dil ve biçim: düz Türkçe, yazı dili, kısa ve net cümleler; her cümle tek başına anlaşılır. Dersin doğal bölümlerine göre "### " alt başlıklar (en fazla 10). Madde listesi yalnız gerçekten sıralı adım veya liste için; normal anlatım paragraf. Kalın yalnız formül ve adı konmuş kavramlar için. YAML frontmatter yok; dosya "---" ile başlamaz; "#" ve "##" seviyesinde başlık kullanma.
 5. Uzunluk: içerik neyi gerektiriyorsa; tipik olarak transkriptin %40-70'i. Kısa tutmak için içerik atma.
@@ -35,7 +36,9 @@ Dönüş (StructuredOutput): no=${d.no}, yazildi, transkript_karakter, analiz_ka
 const denetPrompt = (d, args) => `Görev: Denetim. Ders ${d.no}: "${d.base}".
 Transkript: ${args.V}/${d.base}.txt. Analiz: ${args.OUT}/${d.no}.md. Yalnız oku, hiçbir dosyayı değiştirme.
 
-Analiz, transkriptin insan konuşmasından arındırılmış EKSİKSİZ kopyası olmalı: her iddia, adım, formül, rakam, isim, araç, örnek, uyarı ve öneri, aynı sırayla. Dolgu, tekrar, selamlaşma, teknik aksaklık ve konuşma bozuklukları atılmış olmalı; onların yokluğu hata değildir.
+Analiz, transkriptin insan konuşmasından arındırılmış EKSİKSİZ kopyası olmalı: her iddia, adım, formül, rakam, isim, araç, örnek, uyarı ve öneri, aynı sırayla. Dolgu, tekrar, selamlaşma, teknik aksaklık ve konuşma bozuklukları atılmış olmalı; onların yokluğu hata değildir. Uzun anlatımın tek cümleye inmesi de hata değildir — bilgi durduğu sürece.
+
+En sık kaçan dört şeyi ayrıca ara: somut örnek (kişi, marka, film, olay adı) genelleştirilmiş mi ("Breaking Bad" → "bir dizi"); sayı ve ölçü düşmüş veya bir kademesi atlanmış mı; araç ve ürün adı kaybolmuş mu; uyarı yumuşatılmış mı. Bunlar "üslup farkı" değil, eksiktir.
 
 İkisini baştan sona oku (uzunsa parça parça) ve şunları çıkar:
 - eksik: transkriptte olup analizde olmayan içerik (her madde tek cümle, transkriptteki ifadeye yakın; rakam ve isim varsa yaz). Üslup farkı ve atılması gereken dolgu eksik sayılmaz.
