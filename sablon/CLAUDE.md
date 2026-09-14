@@ -142,7 +142,7 @@ değişkeninden oku.
 | `BİLGİ/` | Derlenmiş kavramlar | Makine |
 | `GİZLİ/` | Anahtarlar ve erişim bilgileri | <AD> |
 | `EĞİTİMLER/KAYNAKLAR/` | Satın alınan eğitimler | Salt okunur |
-| `EĞİTİMLER/YOUTUBE/` | Oynatma listesinden gelen video notları ve `RAW/` transkriptleri | Makine ve sen |
+| `EĞİTİMLER/YOUTUBE/` | Oynatma listesinden gelen videolar: tekil notlar `TEKİL VİDEOLAR/`, çok videolu kanallar kendi klasöründe | Makine ve sen |
 | `EĞİTİMLER/KENDİ NOTLARIM/` | Kendi eğitim notları | İkiniz |
 | `İŞ/` | İş notları, tarifler, iş alanları | İkiniz |
 | `KİŞİSEL/` | Kimlik, kişisel notlar, kişisel alanlar | <AD> |
@@ -177,9 +177,12 @@ eğitimin kökündeki not dosyasına (`.claude/beyin.json` içindeki `notlar_dos
 sayfalarında kırık wiki-link çıkarsa yalnız link hedefi onarılır, ders içeriği değişmez.
 Eğitimden işe dönüşen çıkarım o alanın `BEYİN/TARİFLER/` klasörüne `<Konu> Tarifi.md` adıyla yazılır.
 
-`EĞİTİMLER/YOUTUBE/` oynatma listesinden gelen videolardır (§3'teki kapı doldurur): not klasör
-kökünde (`<Kanal> — <Başlık>.md`), ham transkript `RAW/` altında, listesi `00 İçindekiler.md`.
-Not Sonnet'indir, şef kontrolünden geçer; düzeltmek serbesttir.
+`EĞİTİMLER/YOUTUBE/` oynatma listesinden gelen videolardır (§3'teki kapı doldurur). Tek tek
+izlenen videolar `TEKİL VİDEOLAR/` altındadır: not o klasörde (`<Kanal> — <Başlık>.md`), ham
+transkript altındaki `RAW/` dizininde. Not Sonnet'indir, şef kontrolünden geçer; düzeltmek
+serbesttir. Bir kanalın çok videosu toplanmışsa YOUTUBE altında kendi klasörünü alır ve yapısı
+satın alınan eğitimlerle aynı olur (`WİKİ/`, `RAW/`, `00 İçindekiler.md`). Kök
+`00 İçindekiler.md` ikisini birden listeler.
 
 ---
 

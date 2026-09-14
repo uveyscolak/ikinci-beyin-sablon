@@ -35,6 +35,8 @@ from datetime import datetime
 from pathlib import Path
 
 KLASOR = "EĞİTİMLER/YOUTUBE"
+# Tek tek gelen videolar burada; çok videolu kanallar YOUTUBE altında kendi klasöründe durur.
+TEKIL = KLASOR + "/TEKİL VİDEOLAR"
 KUTUK = ".claude/scripts/.state/youtube-islenmis.json"
 DURUM = ".claude/scripts/.state/youtube-durum.json"
 TUR_BASI_TAVAN = 3           # tek açılışta en fazla bu kadar video; liste kabarırsa saatler sürmesin
@@ -203,7 +205,7 @@ def whisper_dene(url: str, hedef: Path) -> str:
 
 
 def transkript_yaz(vault: Path, video: dict, metin: str, kaynak: str, kok_ad: str) -> Path:
-    raw = vault / KLASOR / "RAW"
+    raw = vault / TEKIL / "RAW"
     raw.mkdir(parents=True, exist_ok=True)
     yol = raw / f"{kok_ad} — Transkript.md"
     basli = (f"# {video['baslik']} — Transkript\n\n"
@@ -381,8 +383,9 @@ def not_yaz(vault: Path, video: dict, parca: dict, kok_ad: str, transkript_adi: 
              f"> Kaynak: [YouTube]({video['url']}) · {kanal} · {dk} dk · {yayin} · "
              f"Alan: {alan_link} · Eklendi {bugun()} · Notu Sonnet yazdı, kontrol bekliyor\n\n")
     govde = parca["not"].rstrip() + "\n\n"
-    kuyruk = f"## Transkript\n\n[[{KLASOR}/RAW/{transkript_adi}|Ham transkript]]\n"
-    yol = vault / KLASOR / f"{kok_ad}.md"
+    kuyruk = f"## Transkript\n\n[[{TEKIL}/RAW/{transkript_adi}|Ham transkript]]\n"
+    yol = vault / TEKIL / f"{kok_ad}.md"
+    yol.parent.mkdir(parents=True, exist_ok=True)
     yol.write_text(basli + govde + kuyruk, encoding="utf-8")
     return yol
 
@@ -467,7 +470,7 @@ def kuyruga_ekle(vault: Path, video: dict, kok_ad: str, transkript_adi: str, dur
     else:
         madde = (f"- **{video['baslik']}** — {video.get('kanal') or '—'} · {dk} dk · "
                  f"NOT YAZILAMADI ({durum}); transkript hazır: "
-                 f"[[{KLASOR}/RAW/{transkript_adi}|RAW]] · notu şef yazacak · düştü {bugun()}\n")
+                 f"[[{TEKIL}/RAW/{transkript_adi}|RAW]] · notu şef yazacak · düştü {bugun()}\n")
     with p.open("a", encoding="utf-8") as f:
         f.write(madde)
 

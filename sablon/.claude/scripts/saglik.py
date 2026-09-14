@@ -204,7 +204,7 @@ def link_taramasi() -> dict:
         parcalar = _parcalar(rel)
         if not _taranir(parcalar):
             continue
-        # KAYNAKLAR içeriği dokunulmaz orijinal kaynak: kırıkları ayrı sayılır.
+        # KAYNAKLAR içeriği orijinal kaynak: kırıkları ayrı sayılır.
         salt = parcalar[:2] == ("EĞİTİMLER", "KAYNAKLAR")
         try:
             ham = p.read_text(encoding="utf-8", errors="replace")
@@ -294,7 +294,7 @@ def linkler_raporu() -> str:
     satirlar = [
         f"Kırık wiki-link: {len(r['kirik'])}, ölü yol: {len(r['olu'])}, "
         f"etkilenen dosya: {len(gruplar)}",
-        f"EĞİTİMLER/KAYNAKLAR (dokunulmaz kaynak): {r['kaynak_kirik']} kırık link, "
+        f"EĞİTİMLER/KAYNAKLAR (orijinal kaynak): {r['kaynak_kirik']} kırık link, "
         f"{r['kaynak_olu']} ölü yol",
         "",
     ]
@@ -868,7 +868,7 @@ def kontrol() -> dict:
         )
     if lt["kaynak_kirik"] or lt["kaynak_olu"]:
         bilgi.append(
-            f"EĞİTİMLER/KAYNAKLAR (dokunulmaz kaynak): {lt['kaynak_kirik']} kırık link, "
+            f"EĞİTİMLER/KAYNAKLAR (orijinal kaynak): {lt['kaynak_kirik']} kırık link, "
             f"{lt['kaynak_olu']} ölü yol (bilgi)."
         )
 
