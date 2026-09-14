@@ -168,9 +168,9 @@ değişkeninden oku.
 
 ## 7. Eğitimler
 
-`EĞİTİMLER/KAYNAKLAR/` satın alınan eğitimlerdir; içeriği dokunulmaz orijinal kaynaktır. Koruma
-teknik kilitle değil kuralla sağlanır: ders sayfası, görsel ve transkript değiştirilmez, oraya
-kendiliğinden hiçbir şey yazılmaz, yalnız kullanıcı açıkça istediğinde iş yapılır. Her eğitimin
+`EĞİTİMLER/KAYNAKLAR/` satın alınan eğitimlerdir; içeriği orijinal kaynaktır ama dokunulmaz
+değildir. Tek ilke şudur: oraya kendiliğinden hiçbir şey yazılmaz, kullanıcı istediğinde toplu
+düzeltme dahil her iş yapılır. Her eğitimin
 kökünde `00 İçindekiler.md`, listesi `EĞİTİMLER/KAYNAKLAR/index.md`
 (`python3 .claude/scripts/egitim-icindekiler.py` üretir). Kullanıcının o eğitime dair notu
 eğitimin kökündeki not dosyasına (`.claude/beyin.json` içindeki `notlar_dosyasi`) yazılır; ders

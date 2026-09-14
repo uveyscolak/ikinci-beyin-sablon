@@ -119,13 +119,13 @@ def egitim_uret(wiki: Path) -> dict:
     satirlar += [
         f"{len(moduller)} modül, {len(sayfalar)} ders, {transkriptli} transkript. Özetler ders sayfasındaki",
         "\"Ne Öğretiyor\" bölümünden veya ilk paragraftan otomatik alındı; ders için sayfayı, asıl söz için",
-        "transkripti oku (`egitim` skill'i). Bu klasörün içeriği dokunulmaz orijinal kaynaktır, değiştirilmez.",
+        "transkripti oku (`egitim` skill'i). Bu klasörün içeriği orijinal kaynaktır; kendiliğinden değiştirilmez.",
     ]
     if cikti:
         satirlar.append(f"İşe dönük çıktı: {cikti}")
     notlar = egitim / NOTLAR_DOSYASI
     if not notlar.exists():
-        yaz(notlar, f"# {notlar.stem}\n\nBu eğitime dair kendi notların. Ders sayfaları dokunulmaz kaynaktır, bu dosya senindir.\n")
+        yaz(notlar, f"# {notlar.stem}\n\nBu eğitime dair kendi notların. Ders sayfaları orijinal kaynaktır, bu dosya senindir.\n")
     satirlar.append(f"Kendi notların: [[{notlar.relative_to(VAULT).with_suffix('').as_posix()}\\|{notlar.stem}]] (yazılabilir).")
     satirlar += govde + ["", "---", "[[EĞİTİMLER/KAYNAKLAR/index\\|Eğitimler]]", ""]
     yaz(egitim / ICINDEKILER, "\n".join(satirlar))
@@ -137,7 +137,7 @@ def index_uret(bilgiler: list[dict]) -> None:
         "# Eğitimler — Satın alınan kaynaklar",
         "",
         "Her eğitim kendi klasöründe, `RAW/` (video, transkript, belge) ve `WİKİ/` (her ders bir sayfa) ile",
-        "durur; kökündeki `00 İçindekiler.md` dersleri tek satır özetle listeler. Klasörün içeriği dokunulmaz orijinal kaynaktır, değiştirilmez.",
+        "durur; kökündeki `00 İçindekiler.md` dersleri tek satır özetle listeler. Klasörün içeriği orijinal kaynaktır; kendiliğinden değiştirilmez.",
         "Soru sormak, ders anlattırmak ve damıtmak için `egitim` skill'i. Bu sayfa",
         "`python3 .claude/scripts/egitim-icindekiler.py` ile üretilir; elle düzenleme.",
         "",
