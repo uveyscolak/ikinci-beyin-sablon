@@ -431,7 +431,7 @@ def icindekilere_ekle(vault: Path, video: dict, kok_ad: str, alan: str, ozet: st
     dk = round((video.get("sure") or 0) / 60)
     alan_h = f"[[{alan}\\|{alan_adi(vault, alan)}]]" if alan and alan != "-" else "—"
     ozet_h = ozet.replace("|", "/")
-    satir = (f"| [[{KLASOR}/{kok_ad}\\|{video['baslik'].replace('|', '/')}]] | "
+    satir = (f"| [[{TEKIL}/{kok_ad}\\|{video['baslik'].replace('|', '/')}]] | "
              f"{video.get('kanal') or '—'} | {dk} dk | {alan_h} | {ozet_h} | {bugun()} |\n")
     with p.open("a", encoding="utf-8") as f:
         f.write(satir)
@@ -447,7 +447,7 @@ def kaynaklara_ekle(vault: Path, alan_yol: str, kok_ad: str, video: dict, ozet: 
     if not durum.exists():
         return False
     metin = durum.read_text(encoding="utf-8")
-    not_yolu = f"{KLASOR}/{kok_ad}"
+    not_yolu = f"{TEKIL}/{kok_ad}"
     if not_yolu in metin:
         return False
     kanal = video.get("kanal") or "—"
@@ -481,7 +481,7 @@ def kuyruga_ekle(vault: Path, video: dict, kok_ad: str, transkript_adi: str, dur
             encoding="utf-8")
     dk = round((video.get("sure") or 0) / 60)
     if durum == "not-hazir":
-        madde = (f"- [[{KLASOR}/{kok_ad}|{video['baslik']}]] — {video.get('kanal') or '—'} · {dk} dk · "
+        madde = (f"- [[{TEKIL}/{kok_ad}|{video['baslik']}]] — {video.get('kanal') or '—'} · {dk} dk · "
                  f"not Sonnet'ten, kontrol bekliyor · düştü {bugun()}\n")
     else:
         madde = (f"- **{video['baslik']}** — {video.get('kanal') or '—'} · {dk} dk · "
@@ -499,7 +499,7 @@ def isle(vault: Path, video: dict) -> tuple[bool, str]:
     baslik = temiz_ad(video["baslik"], 80)
     kok_ad = f"{kanal} — {baslik}" if kanal else baslik
     # Not zaten varsa (kütük kaybolmuş ya da başka makine) yeniden işleme; kütüğe yazılır, geçilir.
-    if (vault / KLASOR / f"{kok_ad}.md").exists():
+    if (vault / TEKIL / f"{kok_ad}.md").exists():
         return True, "not zaten vardı, atlandı"
 
     gecici = vault / ".claude" / "scripts" / ".state" / "yt-gecici" / video["id"]
