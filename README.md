@@ -69,6 +69,9 @@ paketi gerekmez. Vault için iç disk önerilir; iCloud gibi senkronlu klasörle
   yerlerini gerçek vault yoluna değiştirip `~/Library/LaunchAgents/com.beyin.gece-bakim.plist`
   olarak kopyala, sonra `launchctl load ~/Library/LaunchAgents/com.beyin.gece-bakim.plist`.
   Linux'ta aynı iş için `cron` kullanılabilir (`0 4 * * * python3 <VAULT>/.claude/scripts/gece-bakim.py`).
+  Gece bakımı son adımda kod depolarını doğrulayıp (derleme/test) geçerse push eder; doğrulama
+  düşerse o depo push edilmez ve bir sonraki açılışta tek satırla söylenir. Kod depolarının
+  kökü `.claude/beyin.json` içindeki `projeler` alanında yapılandırılır.
 - **Sınırlar.** Hafıza dosyalarının boyut ve madde sınırları `.claude/beyin.json` içindeki
   `sinirlar` bölümünde durur; dosya yoksa veya eksikse script'ler kendi varsayılanına düşer.
 

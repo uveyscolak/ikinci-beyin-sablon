@@ -9,7 +9,7 @@ onları basmaz. Kanca yalnız o an üretilen bilgiyi taşır ve toplamı beyin.j
 Bloklar, sırasıyla:
   1. Beyin sağlığı (kısaltılmış)
   2. Boyut ve madde sayımı: yalnız sınırı aşan dosyalar, her biri tek satır
-  3. Kod depoları: push ve commit durumu
+  3. Kod depoları ve vault: push durumu (yalnız sorun varsa; push artık makinenin işi)
   4. Bekleyenler: HAFIZA/Bekleyenler.md'den en fazla üç madde
   5. Hatırlatmalar: HAFIZA/Hatırlatmalar.md'de günü gelmiş satırlar
   6. Token: HAFIZA/Token Raporu.md'nin en son gün satırı, tek cümle
@@ -25,7 +25,6 @@ from __future__ import annotations
 import datetime as dt
 import json
 import re
-import subprocess
 import sys
 from pathlib import Path
 
@@ -130,49 +129,42 @@ def sayim_blogu(vault: Path) -> str:
 
 
 def push_bekleyen(vault: Path) -> str:
-    """Kod depolarında push bekleyen commit ve commit bekleyen değişiklik taraması.
-
-    Commit Claude'a, push kullanıcıya ait. Kullanıcı push'u unutuyor; hatırlatma bu yüzden
-    mekanizmaya bağlı, Claude'un aklında tutmasına değil.
+    """Kod depoları ve vault'un push durumu: depo-push.py ve vault-push.py'nin yazdığı
+    .state/push-durum.json'dan okunur. Push artık makinenin işi; burada
+    yalnız sorun varsa tek satır basılır — doğrulama düşen depo, push hatası alan depo,
+    uzak dalı olmayan depo. Her şey temizse blok hiç görünmez.
     """
-    kok = ayar_oku(vault).get("projeler")
-    if not kok:
+    r = _json_oku(vault / ".claude" / "scripts" / ".state" / "push-durum.json")
+    if not r:
         return ""
-    kokp = Path(str(kok))
-    if not kokp.is_dir():
+    satirlar: list[str] = []
+
+    depolar = r.get("depolar")
+    if isinstance(depolar, dict):
+        for ad, kayit in sorted(depolar.items()):
+            if not isinstance(kayit, dict):
+                continue
+            sonuc = kayit.get("sonuc")
+            if sonuc == "push_edilmedi":
+                dog = kayit.get("dogrulama") or {}
+                satirlar.append(
+                    f"- {ad}: doğrulama düştü ({dog.get('tur', '?')}), push edilmedi. "
+                    f"{str(dog.get('ayrinti', ''))[:150]}"
+                )
+            elif sonuc == "push_hatasi":
+                satirlar.append(f"- {ad}: push hatası — {str(kayit.get('push_ayrinti', ''))[:150]}")
+            elif sonuc == "atlandi":
+                satirlar.append(f"- {ad}: {kayit.get('ayrinti', 'uzak dal yok')}")
+
+    vault_kaydi = r.get("vault")
+    if isinstance(vault_kaydi, dict) and vault_kaydi.get("sonuc") == "hata":
+        satirlar.append(f"- vault push hatası: {str(vault_kaydi.get('ayrinti', ''))[:150]}")
+
+    if not satirlar:
         return ""
-
-    def git(depo: Path, *arg: str) -> str:
-        try:
-            r = subprocess.run(("git", "-C", str(depo)) + arg, capture_output=True,
-                               text=True, timeout=10)
-            return r.stdout.strip() if r.returncode == 0 else ""
-        except (OSError, subprocess.SubprocessError):
-            return ""
-
-    pushlar: list[str] = []
-    kirliler: list[str] = []
-    for depo in sorted(p for p in kokp.iterdir() if (p / ".git").is_dir()):
-        if not git(depo, "remote"):
-            continue
-        bekleyen = git(depo, "log", "--branches", "--not", "--remotes", "--oneline")
-        if bekleyen:
-            n = len(bekleyen.splitlines())
-            pushlar.append(f"  - {depo.name}: {n} commit bekliyor")
-        kirli = git(depo, "status", "--porcelain")
-        if kirli:
-            kirliler.append(f"  - {depo.name}: {len(kirli.splitlines())} dosya")
-
-    if not pushlar and not kirliler:
-        return ""
-    parca = []
-    if pushlar:
-        parca.append("Push bekleyen depolar (push kullanıcıya ait, sen atma):")
-        parca.extend(pushlar)
-    if kirliler:
-        parca.append("Commit bekleyen değişiklik (commit sana ait, sormadan yap):")
-        parca.extend(kirliler)
-    return "\n".join(parca)
+    parca = ["Push sorunları (push artık makinenin işi, yalnız sorun varsa görünür):"]
+    parca.extend(satirlar[:5])
+    return kirp("\n".join(parca), 400, "push durumu")
 
 
 def bekleyenler(vault: Path, en_fazla: int) -> str:
@@ -351,7 +343,7 @@ def kur(vault: Path) -> str:
 
     ekle("[Beyin sağlığı]", saglik(vault))
     ekle("[Boyut ve madde sayımı — sınırı aşanlar]", sayim_blogu(vault))
-    ekle("[Kod depoları — push ve commit durumu]", push_bekleyen(vault))
+    ekle("[Kod depoları ve vault — push durumu]", push_bekleyen(vault))
     ekle("[Bekleyenler — gece bakımının önerileri]", bekleyenler(vault, sinir["bekleyenler_en_fazla"]))
     ekle("[Hatırlatmalar — günü gelenler]", hatirlatmalar(vault))
     ekle("[Token kullanımı]", token_satiri(vault))

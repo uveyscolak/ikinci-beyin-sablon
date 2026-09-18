@@ -6,10 +6,12 @@ Sıra:
   2. index-uret.py             : kök index.md ve .claude/tetik-indeks.json
   3. token-rapor.py            : HAFIZA/Token Raporu.md
   4. compile.py (aday modu)    : günlükten kural adayı çıkarır, Bekleyenler'e yazar
+  5. depo-push.py              : kod depolarında derleme/test geçerse push eder
 
 İlk üç adım model çağırmaz. Dördüncü adım Sonnet çağırır ve yalnız bugün henüz
 çalışmadıysa yapılır; haftalık abonelik sınırına takılırsa atlanır, atlandığı görünür
-kaydedilir ve bir sonraki açılışta tek satırla söylenir.
+kaydedilir ve bir sonraki açılışta tek satırla söylenir. Beşinci adım da model çağırmaz;
+sonucu .state/push-durum.json'a kendi yazar, burada yalnız "tamam/başarısız" özeti geçer.
 
 Bir adım düşerse diğerleri devam eder. Sonuç .state/gece-bakim.json ve .state/gece-bakim.log
 dosyalarına yazılır; sonuç "basarisiz" ise açılış kancası tek satır basar.
@@ -134,6 +136,10 @@ def main() -> int:
                 sonuc = {"sonuc": "dustu", "ayrinti": hata}
                 log_yaz(f"derleme: model çağrısı düştü — {hata}")
         adimlar["derleme"] = sonuc
+
+    adimlar["depo-push"] = calistir(
+        "depo-push", [sys.executable, str(SCRIPTS / "depo-push.py")], 1200
+    )
 
     basarisiz = [ad for ad, d in adimlar.items()
                  if d.get("sonuc") not in ("tamam", "atlandi")]

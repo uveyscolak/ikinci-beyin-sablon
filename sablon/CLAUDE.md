@@ -183,9 +183,10 @@ olmayan yeni bir iş dosyası doğarsa açılış kancası söyler.
   netleşmemişse silme, yarışan halleri tarihiyle tut, netleşince tek doğruya indir.
 - **Yeni özellik geldiğinde** doğrudan koda başlama: önce açık uçlu konuş, sonucu PRD'ye
   `## Ek — [özellik] (tarih)` olarak yaz. Küçük düzeltme için bu gerekmez.
-- **Kod commit'i sana aittir, push <AD>'a.** Anlamlı bir değişiklik bitince sormadan commit'le,
-  uzak depoya push etme. **Hatırlatma sende:** push unutulabilir, commit attığın oturumun
-  sonunda tek cümleyle hatırlat. Vault'u makine commit'ler.
+- **Kod commit'i sana aittir, push makineye.** Anlamlı bir değişiklik bitince sormadan
+  commit'le. Push kod deposunda yalnız derleme ve testler geçiyorsa yapılır; geçmezse push
+  edilmez ve bir sonraki açılışta söylenir. Vault oturum sonunda kendiliğinden
+  commit'lenip push'lanır.
 
 ---
 

@@ -43,6 +43,6 @@ nohup bash -c "
   python3 '$BEYIN_PROJECT_DIR/.claude/scripts/index-uret.py' >/dev/null 2>&1 || :
   git add -A >/dev/null 2>&1 && git commit -q -m 'oturum: $BEYIN_DAMGA' >/dev/null 2>&1
   $BEYIN_FLUSH
-  git remote get-url origin >/dev/null 2>&1 && git push -q origin HEAD >/dev/null 2>&1
+  command -v python3 >/dev/null 2>&1 && python3 '$BEYIN_PROJECT_DIR/.claude/scripts/vault-push.py' >/dev/null 2>&1
 " >/dev/null 2>&1 &
 exit 0

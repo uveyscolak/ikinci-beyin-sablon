@@ -50,8 +50,8 @@ if command -v python3 >/dev/null 2>&1; then
     "$BEYIN_PROJECT_DIR" >/dev/null 2>&1 &
 fi
 
-# Önceki oturumdan push edilmemiş commit varsa arka planda gönder.
-if git -C "$BEYIN_PROJECT_DIR" remote get-url origin >/dev/null 2>&1; then
-  nohup git -C "$BEYIN_PROJECT_DIR" push -q origin HEAD >/dev/null 2>&1 &
+# Önceki oturumdan push edilmemiş commit varsa arka planda gönder; sonuç push-durum.json'a.
+if command -v python3 >/dev/null 2>&1; then
+  nohup python3 "$BEYIN_PROJECT_DIR/.claude/scripts/vault-push.py" >/dev/null 2>&1 &
 fi
 exit 0
