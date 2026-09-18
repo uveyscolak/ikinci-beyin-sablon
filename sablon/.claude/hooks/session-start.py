@@ -1,20 +1,24 @@
 #!/usr/bin/env python3
 """Oturum başı bağlamını kurar ve Claude Code kancasının beklediği JSON'u basar.
 
-Kurallar, Açık Konular ve Son Oturum artık CLAUDE.md §12'deki @ bağlarıyla tam ve
-kırpılmadan yüklenir; bu kanca onları basmaz. Kanca yalnız o an üretilen bilgiyi taşır:
-sağlık kontrolü, boyut bekçisi, push bekleyen depolar, kural ve çelişki adayları,
-bilgi indeksinin son satırları, bugünün günlük kuyruğu.
+Kurallar, Açık Konular ve Son Oturum CLAUDE.md'deki @ bağlarıyla tam yüklenir; bu kanca
+onları basmaz. Kanca yalnız o an üretilen bilgiyi taşır ve toplamı beyin.json'daki
+`kanca_acilis_karakter` sınırını (6.000) aşmaz. Claude Code 10.000 karakteri aşan kanca
+çıktısını dosyaya atıp yalnız ilk 2.000 karakterini gösteriyor; pay bilerek büyük tutuldu.
 
-Sıra ve ilke: en yeni bilgi önce gelir, kırpma her zaman eskiyi düşürür.
-- Beyin sağlığı ve boyut bekçisi: en önde.
-- Push/commit durumu.
-- HAFIZA/Kural Adayları.md: varsa, onay bekleyenler.
-- HAFIZA/Çelişki Adayları.md: varsa, derleyicinin bulduğu eski/yeni bilgi çatışmaları.
-- BİLGİ/index.md: tablo, yeniden eskiye.
-- GÜNLÜK/<bugün>.md: kuyruk.
-Bölüm tavanları aşıldığında not düşülür; toplam tavan (9.000) aşılırsa önce indeks
-satır sayısı, sonra günlük kuyruğu, sonra düz kesme uygulanır.
+Bloklar, sırasıyla:
+  1. Beyin sağlığı (kısaltılmış)
+  2. Boyut ve madde sayımı: yalnız sınırı aşan dosyalar, her biri tek satır
+  3. Kod depoları: push ve commit durumu
+  4. Bekleyenler: HAFIZA/Bekleyenler.md'den en fazla üç madde
+  5. Hatırlatmalar: HAFIZA/Hatırlatmalar.md'de günü gelmiş satırlar
+  6. Token: HAFIZA/Token Raporu.md'nin en son gün satırı, tek cümle
+  7. Bağlanmamış iş dosyaları: saglik.py'nin bulduklarından en fazla üç tanesi
+  8. Gece bakımı: son koşu düştüyse tek satır
+  9. YouTube kuyruğu ve bugünün günlük kuyruğu
+
+Bağlam özetlendiğinde (source=compact) ya da oturum sürdürüldüğünde (resume) hiçbir blok
+basılmaz; yalnız tek satırlık bir not gider, çünkü bu dosyalar zaten o oturumda okundu.
 """
 from __future__ import annotations
 
@@ -25,26 +29,18 @@ import subprocess
 import sys
 from pathlib import Path
 
-TOPLAM_TAVAN = 9_000
-TAVAN = {
-    "adaylar": 2_000,
-    "celiskiler": 2_000,
-    "indeks": 14_000,
-    "gunluk": 3_000,
-}
-# İndeksin tamamı açılışın en pahalı parçasıydı (43 satır, ~12 KB) ve nadiren okunuyordu.
-# Yalnız en yeni satırlar girer; gerisini `hatirla` skill'i dosyadan arar.
-INDEKS_SATIR = 8
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
+from _sinirlar import ayar_oku, sinirlar  # noqa: E402
 
-# Boyut bekçisinin izlediği üç dosya: CLAUDE.md §12'de tam yüklenenlerle aynı üçlü.
-# Son Oturum.md sınırı flush.py'deki SON_OTURUM_SINIR ile aynı değerde tutulmalı;
-# flush.py o sınırı yazarken uygular, burası yalnız okuyup uyarır (ayrı süreçler,
-# import yerine bu yorumla bağlı).
-BOYUT_SINIRLARI = {
-    "HAFIZA/Kurallar.md": 8_000,
-    "HAFIZA/Açık Konular.md": 6_000,
-    "HAFIZA/Son Oturum.md": 5_000,
+TAVAN = {
+    "saglik": 600,
+    "gunluk": 1_200,
+    "youtube": 900,
 }
+
+# Kompakt ve sürdürme açılışında basılan tek satır. Proje ve alan blokları oturum izini
+# pre-compact.sh sildiği için konu tekrar geçtiğinde kendiliğinden yeniden gelir.
+KOMPAKT_NOT = "Bağlam özetlendi; proje ve alan blokları konu geçince yeniden gelecek."
 
 
 def oku(path: Path) -> str:
@@ -58,104 +54,90 @@ def kirp(metin: str, tavan: int, ad: str) -> str:
     metin = metin.strip()
     if len(metin) <= tavan:
         return metin
-    not_ = f"[not: {ad} {tavan:,} karakterde kırpıldı, tamamı için dosyayı aç]".replace(",", ".")
-    return metin[: tavan - len(not_) - 1].rstrip() + "\n" + not_
+    not_ = f"[not: {ad} kırpıldı, tamamı için dosyayı aç]"
+    return metin[: max(0, tavan - len(not_) - 1)].rstrip() + "\n" + not_
 
 
-def kural_adaylari(hafiza: Path) -> str:
-    metin = oku(hafiza / "Kural Adayları.md")
-    maddeler = [s for s in metin.splitlines() if s.lstrip().startswith("- ")]
-    return "\n".join(maddeler)
-
-
-def celiski_adaylari(hafiza: Path) -> str:
-    metin = oku(hafiza / "Çelişki Adayları.md")
-    maddeler = [s for s in metin.splitlines() if s.lstrip().startswith("- ")]
-    return "\n".join(maddeler)
-
-
-def indeks_parcala(vault: Path) -> tuple[str, list[str]]:
-    metin = oku(vault / "BİLGİ" / "index.md")
-    if not metin:
-        return "", []
-    satirlar = metin.splitlines()
-    baslik, satirlar_tablo = [], []
-    ayrac_gecti = False
-    for s in satirlar:
-        if not ayrac_gecti:
-            baslik.append(s)
-            if re.match(r"^\|\s*-{3,}", s):
-                ayrac_gecti = True
-            continue
-        if s.startswith("| ["):
-            satirlar_tablo.append(s)
-    satirlar_tablo.reverse()  # yeniden eskiye
-    return "\n".join(baslik), satirlar_tablo
-
-
-def gunluk(vault: Path) -> str:
-    bugun = dt.date.today()
-    for gun in (bugun, bugun - dt.timedelta(days=1)):
-        p = vault / "GÜNLÜK" / f"{gun.isoformat()}.md"
-        if p.exists():
-            return "\n".join(oku(p).splitlines()[-25:])
-    return ""
-
-
-def ayar(vault: Path) -> dict:
+def _json_oku(path: Path) -> dict:
     try:
-        v = json.loads((vault / ".claude" / "beyin.json").read_text(encoding="utf-8"))
-        return v if isinstance(v, dict) else {}
+        veri = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return {}
+    return veri if isinstance(veri, dict) else {}
 
 
 def saglik(vault: Path) -> str:
     """saglik.py'nin yazdığı sonuç: sorun varsa veya haftalık bakım zamanıysa metin döner."""
-    try:
-        r = json.loads((vault / ".claude" / "scripts" / ".state" / "saglik.json").read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return ""
-    if not isinstance(r, dict):
+    r = _json_oku(vault / ".claude" / "scripts" / ".state" / "saglik.json")
+    if not r:
         return ""
     parca = []
-    for s in r.get("sorunlar") or []:
+    for s in (r.get("sorunlar") or [])[:4]:
         parca.append(f"- SORUN: {s}")
-    for b in r.get("bilgi") or []:
+    for b in (r.get("bilgi") or [])[:3]:
         parca.append(f"- not: {b}")
     if r.get("haftalik"):
         son = r.get("haftalik_son") or "hiç"
         parca.append(
-            f"- HAFTALIK BAKIM ZAMANI (son bakım: {son}). Kullanıcıya bugün bakım yapmayı teklif et; onay gelince"
-            " `haftalik` skill'indeki adımları uygula ve bitince `python3 .claude/scripts/saglik.py --bakim-yapildi` çalıştır."
+            f"- HAFTALIK BAKIM ZAMANI (son bakım: {son}). Kullanıcıya bugün bakım yapmayı teklif et;"
+            " onay gelince `haftalik` skill'ini uygula."
         )
     if not parca:
         return ""
-    parca.append("Sorunları kullanıcıya bir cümleyle söyle, düzeltmeyi teklif et; kullanıcının bir şeyi hatırlaması gerekmez.")
-    return "\n".join(parca)
+    parca.append("Sorunları kullanıcıya bir cümleyle söyle, düzeltmeyi teklif et.")
+    return kirp("\n".join(parca), TAVAN["saglik"], "sağlık")
 
 
-def boyut_bekcisi(vault: Path) -> str:
-    """CLAUDE.md §12'de tam yüklenen üç dosyanın boyutunu izler; sınır aşılırsa uyarır."""
-    parca = []
-    for ad, sinir in BOYUT_SINIRLARI.items():
-        n = len(oku(vault / ad))
-        if n > sinir:
-            parca.append(f"- {ad}: {n:,} karakter (sınır {sinir:,}) — sadeleştirme zamanı, kullanıcıya teklif et.".replace(",", "."))
-    if not parca:
+def sayim_blogu(vault: Path) -> str:
+    """Boyut ve madde sayımı: yalnız sınırı aşan dosyalar, dosya başına tek satır.
+
+    Sayıyı saglik.py --sayim üretir ve saglik.json'a yazar; burada yalnız basılır.
+    Sayım yoksa (ilk koşu) dosya boyutundan tek başına uyarı verilir.
+    """
+    r = _json_oku(vault / ".claude" / "scripts" / ".state" / "saglik.json")
+    sayim = r.get("sayim")
+    sinir = sinirlar(vault)
+    satirlar: list[str] = []
+    if isinstance(sayim, dict) and sayim:
+        for ad, deger in sayim.items():
+            if not isinstance(deger, dict):
+                continue
+            if not deger.get("asiyor"):
+                continue
+            madde = deger.get("madde")
+            madde_sinir = deger.get("madde_sinir")
+            karakter = deger.get("karakter", 0)
+            karakter_sinir = deger.get("karakter_sinir", 0)
+            parcalar = []
+            if isinstance(madde, int) and isinstance(madde_sinir, int) and madde_sinir:
+                parcalar.append(f"{madde}/{madde_sinir} madde")
+            parcalar.append(f"{karakter:,}/{karakter_sinir:,} karakter".replace(",", "."))
+            satirlar.append(f"- {ad} {', '.join(parcalar)}")
+    else:
+        eslesme = {
+            "HAFIZA/Kurallar.md": sinir["kurallar_karakter"],
+            "HAFIZA/Açık Konular.md": sinir["acik_konular_karakter"],
+            "HAFIZA/Son Oturum.md": sinir["son_oturum_karakter"],
+        }
+        for ad, tavan in eslesme.items():
+            n = len(oku(vault / ad))
+            if n > tavan:
+                satirlar.append(f"- {ad} {n:,}/{tavan:,} karakter".replace(",", "."))
+    if not satirlar:
         return ""
-    return "\n".join(parca)
+    satirlar.append("Sınırı aşan dosyayı sadeleştirmeyi kullanıcıya teklif et; hangi maddelerin birleşeceğini sen seç.")
+    return "\n".join(satirlar)
 
 
 def push_bekleyen(vault: Path) -> str:
     """Kod depolarında push bekleyen commit ve commit bekleyen değişiklik taraması.
 
-    Commit Claude'a, push kullanıcıya ait (anayasa §8). Kullanıcı push'u unutuyor;
-    hatırlatma bu yüzden mekanizmaya bağlı, Claude'un aklında tutmasına değil.
+    Commit Claude'a, push kullanıcıya ait. Kullanıcı push'u unutuyor; hatırlatma bu yüzden
+    mekanizmaya bağlı, Claude'un aklında tutmasına değil.
     """
-    kok = ayar(vault).get("projeler")
+    kok = ayar_oku(vault).get("projeler")
     if not kok:
-        return ""  # kod klasörü beyin.json'da tanımlı değilse tarama yapılmaz
+        return ""
     kokp = Path(str(kok))
     if not kokp.is_dir():
         return ""
@@ -172,12 +154,11 @@ def push_bekleyen(vault: Path) -> str:
     kirliler: list[str] = []
     for depo in sorted(p for p in kokp.iterdir() if (p / ".git").is_dir()):
         if not git(depo, "remote"):
-            continue  # uzak deposu yoksa push diye bir şey yok
+            continue
         bekleyen = git(depo, "log", "--branches", "--not", "--remotes", "--oneline")
         if bekleyen:
             n = len(bekleyen.splitlines())
-            ilk = bekleyen.splitlines()[0]
-            pushlar.append(f"  - {depo.name}: {n} commit bekliyor (en yenisi: {ilk})")
+            pushlar.append(f"  - {depo.name}: {n} commit bekliyor")
         kirli = git(depo, "status", "--porcelain")
         if kirli:
             kirliler.append(f"  - {depo.name}: {len(kirli.splitlines())} dosya")
@@ -188,113 +169,239 @@ def push_bekleyen(vault: Path) -> str:
     if pushlar:
         parca.append("Push bekleyen depolar (push kullanıcıya ait, sen atma):")
         parca.extend(pushlar)
-        parca.append("Kullanıcıya hatırlat: değişikliklerin çalıştığına kanaat getirdiyse"
-                     " beraber push edilir. Her commit değil, çalışan sürüm push edilir.")
     if kirliler:
         parca.append("Commit bekleyen değişiklik (commit sana ait, sormadan yap):")
         parca.extend(kirliler)
     return "\n".join(parca)
 
 
-def youtube_kuyruk(vault: Path) -> str:
-    """EĞİTİMLER/YOUTUBE/KUYRUK.md: Sonnet'in notunu yazdığı, şef kontrolü bekleyen videolar.
+def bekleyenler(vault: Path, en_fazla: int) -> str:
+    """HAFIZA/Bekleyenler.md: gece bakımının çıkardığı kural adayları ve öneriler.
 
-    youtube-izle.py listeyi arka planda izler, transkripti çıkarır, notu Sonnet'e yazdırır.
-    Şef her notu bir kez okur (alt ajan çıktısı gibi), hatayı düzeltir, maddeyi siler.
-    Ayrıca izleyicinin son çalışması hata verdiyse burada görünür; sessiz kalmaz.
+    Dosya yoksa blok hiç basılmaz. En fazla `bekleyenler_en_fazla` madde gelir; gerisi
+    dosyada durur ve kullanıcı isterse açılır.
     """
-    parca: list[str] = []
-    try:
-        durum = json.loads((vault / ".claude" / "scripts" / ".state" / "youtube-durum.json").read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        durum = {}
-    if durum.get("hata"):
-        parca.append(f"- izleyici son çalışmada ({durum.get('son', '?')}) hata verdi: {durum['hata']}")
-    if durum.get("bekleyen"):
-        parca.append(f"- listede {durum['bekleyen']} video daha sırada, sonraki açılışta işlenecek")
-    metin = oku(vault / "EĞİTİMLER" / "YOUTUBE" / "KUYRUK.md")
-    maddeler = [s for s in metin.splitlines() if s.lstrip().startswith("- ")]
-    if maddeler:
-        parca.extend(maddeler[:5])
-        if len(maddeler) > 5:
-            parca.append(f"  ... ve {len(maddeler) - 5} video daha (EĞİTİMLER/YOUTUBE/KUYRUK.md)")
-        parca.append(
-            "Bunlar YouTube 'Vault' listesinden düşen videolar. 'kontrol bekliyor' olanların notunu Sonnet yazdı: "
-            "`denetci` ajanına notu ham transkriptle karşılaştırt (uydurma iddia, yanlış rakam, kırık link, yanlış alan), "
-            "bulguya göre düzelt, notun kaynak satırındaki 'Notu Sonnet yazdı, kontrol bekliyor' ibaresini 'Notu Sonnet yazdı, şef kontrol etti <tarih>' yap, kullanıcıya tek cümleyle 'X notu hazır, kontrol ettim' de, maddeyi KUYRUK.md'den sil. "
-            "'NOT YAZILAMADI' olanların notunu transkriptten sen yaz (kalıp: mevcut YouTube notları)."
-        )
-    if not parca:
+    metin = oku(vault / "HAFIZA" / "Bekleyenler.md")
+    if not metin:
         return ""
+    maddeler = [s.strip() for s in metin.splitlines() if s.lstrip().startswith("- ")]
+    if not maddeler:
+        return ""
+    secilen = maddeler[:en_fazla]
+    parca = list(secilen)
+    if len(maddeler) > en_fazla:
+        parca.append(f"  ... ve {len(maddeler) - en_fazla} madde daha (HAFIZA/Bekleyenler.md)")
+    parca.append("Bunlar öneridir, kural değildir. Kullanıcıya sor; onaylananı Kurallar'a taşı, reddedileni sil.")
     return "\n".join(parca)
 
 
-def kur(vault: Path) -> str:
-    hafiza = vault / "HAFIZA"
-    kullanici = str(ayar(vault).get("kullanici") or "Kullanıcı")
-    bolumler: list[tuple[str, str]] = []
-    s = saglik(vault)
-    if s:
-        bolumler.append(("[Beyin sağlığı — otomatik kontrol]", s))
-    b = boyut_bekcisi(vault)
-    if b:
-        bolumler.append(("[Boyut bekçisi]", b))
-    p = push_bekleyen(vault)
-    if p:
-        bolumler.append(("[Kod depoları — push ve commit durumu]", p))
-    yt = youtube_kuyruk(vault)
-    if yt:
-        bolumler.append(("[YouTube — Vault listesi izleyicisi]", yt))
-    aday = kirp(kural_adaylari(hafiza), TAVAN["adaylar"], "kural adayları")
-    if aday:
-        bolumler.append((f"[Hafıza: Kural Adayları — derleyici çıkardı, {kullanici} onaylarsa Kurallar'a geçer]", aday))
-    celiski = kirp(celiski_adaylari(hafiza), TAVAN["celiskiler"], "çelişki adayları")
-    if celiski:
-        bolumler.append((f"[Hafıza: Çelişki Adayları — derleyici buldu, makaledeki eski bilgi ile günlükteki yeni bilgi çatışıyor; {kullanici} karar verir]", celiski))
+RE_HATIRLATMA = re.compile(r"^-\s*(\d{4}-\d{2}-\d{2})\s*\|\s*(.+)$")
 
-    baslik, satirlar = indeks_parcala(vault)
-    gun = kirp(gunluk(vault), TAVAN["gunluk"], "günlük")
+
+def hatirlatmalar(vault: Path) -> str:
+    """HAFIZA/Hatırlatmalar.md: `- YYYY-AA-GG | cümle | link` satırları.
+
+    Yalnız tarihi bugüne eşit ya da geçmiş satırlar basılır, hepsi basılır (sayı sınırı yok);
+    günü gelmemiş satır hiç görünmez. Dosya yoksa blok basılmaz.
+    """
+    metin = oku(vault / "HAFIZA" / "Hatırlatmalar.md")
+    if not metin:
+        return ""
+    bugun = dt.date.today()
+    satirlar: list[str] = []
+    for ham in metin.splitlines():
+        eslesme = RE_HATIRLATMA.match(ham.strip())
+        if not eslesme:
+            continue
+        try:
+            gun = dt.date.fromisoformat(eslesme.group(1))
+        except ValueError:
+            continue
+        if gun > bugun:
+            continue
+        satirlar.append(f"- [{gun.isoformat()}] {eslesme.group(2).strip()}")
+    if not satirlar:
+        return ""
+    satirlar.append("Günü gelen işleri kullanıcıya hatırlat; bitenin satırını dosyadan sil.")
+    return "\n".join(satirlar)
+
+
+def token_satiri(vault: Path) -> str:
+    """HAFIZA/Token Raporu.md tablosundaki en son gün satırından tek cümle.
+
+    Tablo biçimi: | Gün | Oturum | Alt ajan kaydı | Girdi | ... | Toplam |
+    En yeni gün en üstte olduğu için ayraçtan sonraki ilk veri satırı alınır.
+    """
+    metin = oku(vault / "HAFIZA" / "Token Raporu.md")
+    if not metin:
+        return ""
+    ayrac_gecti = False
+    for ham in metin.splitlines():
+        s = ham.strip()
+        if not s.startswith("|"):
+            continue
+        if re.match(r"^\|[\s:|-]+\|$", s):
+            ayrac_gecti = True
+            continue
+        if not ayrac_gecti:
+            continue
+        hucre = [h.strip() for h in s.strip("|").split("|")]
+        if len(hucre) < 3:
+            return ""
+        gun, oturum, toplam = hucre[0], hucre[1], hucre[-1]
+        try:
+            tarih = dt.date.fromisoformat(gun)
+        except ValueError:
+            return ""
+        etiket = "Dün" if tarih == dt.date.today() - dt.timedelta(days=1) else gun
+        sayi = toplam.replace(".", "").replace(",", "").strip()
+        if sayi.isdigit():
+            n = int(sayi)
+            gosterim = f"{n / 1_000_000:.1f} milyon token".replace(".", ",") if n >= 1_000_000 \
+                else f"{n:,} token".replace(",", ".")
+        else:
+            gosterim = f"{toplam} token"
+        return f"{etiket}: {gosterim}, {oturum} oturum."
+    return ""
+
+
+def baglanmamis(vault: Path, en_fazla: int) -> str:
+    """saglik.py'nin bulduğu bağlanmamış iş dosyaları: Kaynaklar listesinde geçmeyenler.
+
+    Kullanıcının kendi eliyle yazdığı dosya hiçbir Durum'un Kaynaklar listesinde geçmiyorsa
+    Claude onu hiç görmez. "İşaret etme, önüne koy" ilkesi gereği küçük dosyanın ilk
+    satırları doğrudan basılır.
+    """
+    r = _json_oku(vault / ".claude" / "scripts" / ".state" / "saglik.json")
+    kayitlar = r.get("baglanmamis")
+    if not isinstance(kayitlar, list) or not kayitlar:
+        return ""
+    parca: list[str] = []
+    for kayit in kayitlar[:en_fazla]:
+        if not isinstance(kayit, dict):
+            continue
+        yol = kayit.get("yol")
+        if not yol:
+            continue
+        bas = kayit.get("bas")
+        if bas:
+            parca.append(f"- {yol}\n  {bas}")
+        else:
+            parca.append(f"- {yol}")
+    if not parca:
+        return ""
+    parca.append(
+        "Bu dosyalar son yedi günde değişti ve hiçbir Durum dosyasının Kaynaklar listesinde geçmiyor."
+        " İlgiliyse ait olduğu Durum'un Kaynaklar listesine ekle."
+    )
+    return "\n".join(parca)
+
+
+def gece_bakim(vault: Path) -> str:
+    """Gece bakımının son koşusu düştüyse tek satır; başarılıysa hiçbir şey basılmaz."""
+    r = _json_oku(vault / ".claude" / "scripts" / ".state" / "gece-bakim.json")
+    if not r or r.get("sonuc") != "basarisiz":
+        return ""
+    dusen = [ad for ad, d in (r.get("adimlar") or {}).items()
+             if isinstance(d, dict) and d.get("sonuc") != "tamam"]
+    zaman = r.get("bitis") or r.get("baslangic") or "?"
+    liste = ", ".join(dusen[:4]) if dusen else "ayrıntı yok"
+    return f"- Gece bakımı son koşuda düştü ({zaman}): {liste}. Kayıt: .claude/scripts/.state/gece-bakim.log"
+
+
+def youtube_kuyruk(vault: Path) -> str:
+    """EĞİTİMLER/YOUTUBE/KUYRUK.md: Sonnet'in notunu yazdığı, şef kontrolü bekleyen videolar."""
+    parca: list[str] = []
+    durum = _json_oku(vault / ".claude" / "scripts" / ".state" / "youtube-durum.json")
+    if durum.get("hata"):
+        parca.append(f"- izleyici son çalışmada hata verdi: {str(durum['hata'])[:120]}")
+    metin = oku(vault / "EĞİTİMLER" / "YOUTUBE" / "KUYRUK.md")
+    maddeler = [s for s in metin.splitlines() if s.lstrip().startswith("- ")]
+    if maddeler:
+        parca.extend(maddeler[:3])
+        if len(maddeler) > 3:
+            parca.append(f"  ... ve {len(maddeler) - 3} video daha (EĞİTİMLER/YOUTUBE/KUYRUK.md)")
+        parca.append(
+            "Notu Sonnet yazdı: `denetci` ajanına ham transkriptle karşılaştırt, düzelt,"
+            " kaynak satırını 'şef kontrol etti <tarih>' yap, maddeyi KUYRUK.md'den sil."
+        )
+    if not parca:
+        return ""
+    return kirp("\n".join(parca), TAVAN["youtube"], "YouTube kuyruğu")
+
+
+def gunluk(vault: Path) -> str:
+    bugun = dt.date.today()
+    for gun in (bugun, bugun - dt.timedelta(days=1)):
+        p = vault / "GÜNLÜK" / f"{gun.isoformat()}.md"
+        if p.exists():
+            return "\n".join(oku(p).splitlines()[-20:])
+    return ""
+
+
+def kur(vault: Path) -> str:
+    sinir = sinirlar(vault)
+    toplam_tavan = sinir["kanca_acilis_karakter"]
+
+    adaylar: list[tuple[str, str]] = []
+
+    def ekle(etiket: str, metin: str) -> None:
+        if metin and metin.strip():
+            adaylar.append((etiket, metin.strip()))
+
+    ekle("[Beyin sağlığı]", saglik(vault))
+    ekle("[Boyut ve madde sayımı — sınırı aşanlar]", sayim_blogu(vault))
+    ekle("[Kod depoları — push ve commit durumu]", push_bekleyen(vault))
+    ekle("[Bekleyenler — gece bakımının önerileri]", bekleyenler(vault, sinir["bekleyenler_en_fazla"]))
+    ekle("[Hatırlatmalar — günü gelenler]", hatirlatmalar(vault))
+    ekle("[Token kullanımı]", token_satiri(vault))
+    ekle("[Bağlanmamış iş dosyaları]", baglanmamis(vault, sinir["baglanmamis_en_fazla"]))
+    ekle("[Gece bakımı]", gece_bakim(vault))
+    ekle("[YouTube — Vault listesi]", youtube_kuyruk(vault))
+    ekle("[Bugünün logu — kuyruk]", kirp(gunluk(vault), TAVAN["gunluk"], "günlük"))
 
     kapanis = (
-        "[Hafıza] Kurallar, Açık Konular ve Son Oturum bu anayasanın parçası olarak zaten tam yüklü (CLAUDE.md §12); "
-        "üstlerine sormadan güncellemek senin sorumluluğun."
+        "[Hafıza] Kurallar, Açık Konular ve Son Oturum anayasanın parçası olarak zaten tam yüklü;"
+        " üstlerine sormadan güncellemek senin sorumluluğun."
     )
 
-    def birlestir(indeks_satir: int, gun_metni: str) -> str:
-        parca = []
-        for etiket, metin in bolumler:
-            parca.append(f"{etiket}\n{metin}\n")
-        if baslik and indeks_satir > 0:
-            secilen = satirlar[:indeks_satir]
-            not_ = (
-                f"\n[tam indeks: BİLGİ/index.md ({len(satirlar)} makale), "
-                "`hatirla` skill'i oradan arar]"
-            )
-            parca.append("[Bilgi Tabanı: İndeks — en yeni " + str(len(secilen)) + " makale]\n"
-                         + baslik + "\n" + "\n".join(secilen) + not_ + "\n")
-        if gun_metni:
-            parca.append("[Bugünün Logu — kuyruk]\n" + gun_metni + "\n")
-        parca.append(kapanis)
-        return "\n".join(parca)
+    # Bütçe sırayla harcanır: yukarıdaki sıra önem sırasıdır, sığmayan blok atlanır.
+    # Böylece sağlık ve sayım her zaman girer, günlük kuyruğu ilk düşen olur.
+    parcalar: list[str] = []
+    kullanilan = len(kapanis) + 80
+    atlanan = 0
+    for etiket, metin in adaylar:
+        blok = f"{etiket}\n{metin}\n"
+        if kullanilan + len(blok) > toplam_tavan:
+            atlanan += 1
+            continue
+        parcalar.append(blok)
+        kullanilan += len(blok)
+    if atlanan:
+        parcalar.append(f"[not: {atlanan} blok yer kalmadığı için atlandı]\n")
+    parcalar.append(kapanis)
+    metin = "\n".join(parcalar)
+    if len(metin) > toplam_tavan:
+        metin = metin[: toplam_tavan - 60].rstrip() + "\n[not: kanca çıktısı tavanda kesildi]"
+    return metin + f"\n[Kanca çıktısı: {len(metin):,} karakter; tavan {toplam_tavan:,}]".replace(",", ".")
 
-    # İndeksten yalnız en yeni satırlar girer; tavan ikinci bir emniyet.
-    n = min(INDEKS_SATIR, len(satirlar))
-    while n > 0 and len("\n".join(satirlar[:n])) > TAVAN["indeks"]:
-        n -= 1
-    metin = birlestir(n, gun)
-    while len(metin) > TOPLAM_TAVAN and n > 0:
-        n -= 5 if n > 5 else 1
-        metin = birlestir(n, gun)
-    if len(metin) > TOPLAM_TAVAN:
-        metin = birlestir(n, "")
-    if len(metin) > TOPLAM_TAVAN:
-        not_ = "\n[not: kanca çıktısı 9.000 karakter tavanında kesildi; beyin doktor çalıştır]"
-        metin = metin[: TOPLAM_TAVAN - len(not_) - 40] + not_
-    # Son satırın kendi uzunluğu toplam hesaba katılır; yaklaşık değer yeterli (kapanış tek kez eklenir).
-    kuyruk_sablon = "\n[Kanca çıktısı: {} karakter; tavan 9.000]"
-    tahmini_toplam = len(metin) + len(kuyruk_sablon.format("00.000"))
-    metin = metin + kuyruk_sablon.format(f"{tahmini_toplam:,}".replace(",", "."))
-    return metin
+
+def kaynak_oku(argv: list[str]) -> str:
+    """Kancanın stdin JSON'undaki `source` alanı: startup, resume, clear, compact, fork.
+
+    Claude Code bu JSON'u stdin'den veriyor; session-start.sh onu dosyaya yazıp yolunu
+    --girdi ile geçiyor. Dosya yoksa ya da alan okunamazsa normal açılış varsayılır.
+    """
+    for i, arg in enumerate(argv):
+        if arg == "--girdi" and i + 1 < len(argv):
+            try:
+                veri = json.loads(Path(argv[i + 1]).read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                return ""
+            if isinstance(veri, dict):
+                kaynak = veri.get("source")
+                return kaynak if isinstance(kaynak, str) else ""
+    return ""
 
 
 def main() -> int:
@@ -303,11 +410,16 @@ def main() -> int:
     vault = Path(sys.argv[1])
     if not vault.is_dir():
         return 0
-    metin = kur(vault)
+    kaynak = kaynak_oku(sys.argv)
+    if kaynak in ("compact", "resume"):
+        metin = KOMPAKT_NOT
+    else:
+        metin = kur(vault)
     if "--plain" in sys.argv:
         print(metin)
         return 0
-    print(json.dumps({"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": metin}}, ensure_ascii=False))
+    print(json.dumps({"hookSpecificOutput": {"hookEventName": "SessionStart",
+                                             "additionalContext": metin}}, ensure_ascii=False))
     return 0
 
 

@@ -55,6 +55,23 @@ Ayrıntılı anlatım, mekanizmanın işleyişi ve sorun giderme için [OKUBENİ
 macOS veya Linux, Claude Code aboneliği, Obsidian, python3 ve git. Üçüncü parti Python
 paketi gerekmez. Vault için iç disk önerilir; iCloud gibi senkronlu klasörlerden kaçının.
 
+## Ek kurulum (isteğe bağlı)
+
+`kur.sh` temel kurulumu bitirir; iki mekanizma isteğe bağlı olduğu için elle eklenir.
+
+- **Git kaydı öncesi sır taraması.** `bash .claude/scripts/kanca-kur.sh` vault'un git deposuna
+  bir `pre-commit` kancası kurar; commit'e giren her satırı `GİZLİ/Anahtarlar.md` içindeki
+  değerlere karşı tarar ve bir eşleşme bulursa kaydı durdurur. Mevcut bir `pre-commit` varsa
+  üzerine yazmaz, sonuna ekler.
+- **Gece bakımı.** Kanca mekanizması yalnız Claude Code açıkken çalışır; her gece saat dörtte
+  vault'u tazelemek için ayrı bir zamanlayıcı gerekir. macOS'ta `LaunchAgent` kullanılır:
+  `sablon/.claude/launchagent-ornek/com.beyin.gece-bakim.plist.ornek` dosyasındaki `<VAULT>`
+  yerlerini gerçek vault yoluna değiştirip `~/Library/LaunchAgents/com.beyin.gece-bakim.plist`
+  olarak kopyala, sonra `launchctl load ~/Library/LaunchAgents/com.beyin.gece-bakim.plist`.
+  Linux'ta aynı iş için `cron` kullanılabilir (`0 4 * * * python3 <VAULT>/.claude/scripts/gece-bakim.py`).
+- **Sınırlar.** Hafıza dosyalarının boyut ve madde sınırları `.claude/beyin.json` içindeki
+  `sinirlar` bölümünde durur; dosya yoksa veya eksikse script'ler kendi varsayılanına düşer.
+
 ## Neler var
 
 | Katman | Ne yapar |

@@ -50,7 +50,7 @@ V = Path(vault)
 ayar = {"kullanici": ad, "projeler": projeler, "notlar_dosyasi": "NOTLARIM.md", "egitim_ciktilari": {}, "yedek": ""}
 (V / ".claude" / "beyin.json").write_text(json.dumps(ayar, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 # yer tutucular
-for rel in ["CLAUDE.md", "HAFIZA/Son Oturum.md", "HAFIZA/Açık Konular.md", "HAFIZA/Kurallar.md", "HAFIZA/Günce.md",
+for rel in ["CLAUDE.md", "HAFIZA/Son Oturum.md", "HAFIZA/Açık Konular.md", "HAFIZA/Kurallar.md",
             "PROJELER/Projeler.md", "KİŞİSEL/Kimlik.md"]:
     p = V / rel
     if not p.exists():

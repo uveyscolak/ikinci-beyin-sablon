@@ -14,6 +14,8 @@ genel şablona kopyalanırdı. Giriş dosyası yoksa index yalnız listeden ibar
 """
 from __future__ import annotations
 
+import datetime as dt
+import json
 import re
 import sys
 import unicodedata
@@ -172,7 +174,190 @@ def uret() -> str:
     return "\n".join(parca).rstrip() + "\n"
 
 
+# --- tetik indeksi ---------------------------------------------------------------------
+# `.claude/tetik-indeks.json`: tetik kökünden not yoluna eşleme. Her istemde çalışan kanca
+# bunu yükleyip kullanıcının cümlesindeki kelimelerle eşleştirir ve tek satır ipucu basar.
+# İçerik hiç yüklenmez; yalnız not adı ve yolu basılır.
+
+TETIK_HEDEF = VAULT / ".claude" / "tetik-indeks.json"
+TETIK_KOKLER = ["İŞ", "KİŞİSEL", "PROJELER"]
+TETIK_EN_KISA = 4
+# Bir nottan indekse giren `## ` başlık kelimesi sayısı; Kararlar dosyaları yüzlerce
+# başlık taşıyor ve sınırsız alınırsa ipucu satırını tek başına dolduruyorlar.
+ZAYIF_EN_FAZLA = 40
+# Durak kelimeler: her notta geçer, ayırt etmez, indeksi gürültüye boğar. İstem tarafındaki
+# durak listesiyle (proje-yonerge.py) kasıtlı olarak örtüşür; ikisi de aynı gürültüyü eler.
+DURAK = {
+    "ve", "ile", "için", "bir", "bu", "şu", "olan", "olarak", "daha", "gibi", "ama",
+    "veya", "yani", "çok", "her", "kadar", "sonra", "önce", "göre", "ise", "ki",
+    "notlarım", "içindekiler", "index", "readme", "md", "kaynaklar", "genel",
+    "durum", "kararlar", "proje", "alan", "dosya", "dosyası", "notlar", "not",
+    "genel", "ortak", "temel", "başlık", "bölüm", "liste", "tablo",
+}
+RE_GOVDE_TETIK = re.compile(r"(?mi)^\s*tetik\s*:\s*(.+)$")
+RE_H2 = re.compile(r"(?m)^##\s+(.+?)\s*$")
+
+
+def _sadelestir(metin: str) -> str:
+    """Türkçe harfleri ASCII karşılığına indirir; eşleşme aksandan bağımsız olsun.
+
+    Küçültme elle yapılır: Python'un lower()'ı I ve İ'yi Türkçede yanlış çeviriyor.
+    """
+    kucuk = unicodedata.normalize("NFC", metin).replace("İ", "i").replace("I", "ı").lower()
+    d = {"ç": "c", "ğ": "g", "ı": "i", "ö": "o", "ş": "s", "ü": "u", "â": "a", "î": "i", "û": "u"}
+    return "".join(d.get(k, k) for k in kucuk)
+
+
+def _kelimeler(metin: str) -> list[str]:
+    """Bir metni tetik köklerine ayırır: kısa ve durak kelimeler atılır."""
+    ham = re.split(r"[^0-9a-zA-ZçğıöşüÇĞİÖŞÜâîû]+", metin)
+    cikti = []
+    for kelime in ham:
+        if not kelime:
+            continue
+        kucuk = unicodedata.normalize("NFC", kelime).replace("İ", "i").replace("I", "ı").lower()
+        if kucuk in DURAK:
+            continue
+        kok = _sadelestir(kelime)
+        if len(kok) < TETIK_EN_KISA or kok in DURAK:
+            continue
+        cikti.append(kok)
+    return cikti
+
+
+def _onblok_tetikleri(metin: str) -> list[str]:
+    """Alan sayfalarının ön bloğundaki `tetik:` listesi (üç biçim de desteklenir)."""
+    satirlar = metin.splitlines()
+    if not satirlar or satirlar[0].strip() != "---":
+        return []
+    son = None
+    for i, satir in enumerate(satirlar[1:], 1):
+        if satir.strip() in ("---", "..."):
+            son = i
+            break
+    if son is None:
+        return []
+    ham: list[str] = []
+    i = 1
+    while i < son:
+        eslesme = re.match(r"^tetik\s*:\s*(.*)$", satirlar[i])
+        if not eslesme:
+            i += 1
+            continue
+        kalan = eslesme.group(1).strip()
+        if kalan:
+            ham += kalan.strip("[]").split(",")
+        else:
+            j = i + 1
+            while j < son:
+                alt = re.match(r"^\s*-\s+(.+?)\s*$", satirlar[j])
+                if not alt:
+                    break
+                ham.append(alt.group(1))
+                j += 1
+            i = j - 1
+        i += 1
+    return [p.strip().strip("\"'") for p in ham if p.strip()]
+
+
+def _tetik_dosyalari() -> list[Path]:
+    """İndekse giren notlar.
+
+    İŞ, KİŞİSEL, PROJELER altındaki bütün .md dosyaları; EĞİTİMLER altından yalnız
+    `00 İçindekiler.md`, `* — Notlarım.md` ve TEKİL VİDEOLAR altındaki notlar. Ders
+    sayfaları ve RAW transkriptleri girmez: binlerce dosya indeksi kullanışsız yapar.
+    HAFIZA, GÜNLÜK, BİLGİ ve GİZLİ hiç taranmaz.
+    """
+    cikti: list[Path] = []
+    for kok_adi in TETIK_KOKLER:
+        kok = VAULT / kok_adi
+        if not kok.is_dir():
+            continue
+        for p in sorted(kok.rglob("*.md")):
+            if any(parca.startswith(".") for parca in p.relative_to(VAULT).parts):
+                continue
+            cikti.append(p)
+    egitimler = VAULT / "EĞİTİMLER"
+    if egitimler.is_dir():
+        for p in sorted(egitimler.rglob("*.md")):
+            rel = p.relative_to(VAULT)
+            if any(parca.startswith(".") for parca in rel.parts):
+                continue
+            if "RAW" in rel.parts:
+                continue
+            ad = nfc(p.name)
+            if ad == "00 İçindekiler.md" or ad.endswith("— Notlarım.md") \
+                    or "TEKİL VİDEOLAR" in rel.parts:
+                cikti.append(p)
+    return cikti
+
+
+def tetik_indeksi() -> dict:
+    """Not başına tetik kökleri, kaynak türüne göre üç ayrı liste:
+
+    - "tetik": ön blok `tetik:` ve gövdedeki "Tetik:" satırından gelen kelimeler (en güçlü işaret).
+    - "ad": dosya adından (ve genel adlı dosyalarda üst klasör adından) gelen kelimeler.
+    - "baslik": `## ` başlıklarından gelen kelimeler (en zayıf işaret; bir Kararlar dosyasında
+      yüzlerce başlık var, hepsi eşit sayılırsa dosya her cümleyle eşleşip ipucunu ele geçirir).
+
+    Ağırlıklandırma tüketici tarafta (proje-yonerge.py) yapılır: tetik 3, ad 2, başlık 1 puan.
+    """
+    notlar = []
+    for p in _tetik_dosyalari():
+        rel = nfc(str(p.relative_to(VAULT)))
+        ad = nfc(p.stem)
+        try:
+            ham = p.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            ham = ""
+        tetik: list[str] = []
+        for t in _onblok_tetikleri(ham):
+            tetik += _kelimeler(t)
+        eslesme = RE_GOVDE_TETIK.search(ham[:2000])
+        if eslesme:
+            for parca in eslesme.group(1).split(","):
+                tetik += _kelimeler(parca)
+
+        ad_kelimeleri: list[str] = list(_kelimeler(ad))
+        # Genel adlı dosyalar (Durum, Kararlar, Proje, Alan) adlarıyla ayırt edilmez;
+        # üst klasörlerinin adı onları ayırır.
+        if ad in ("Durum", "Kararlar", "Proje", "Alan", "Kurallar", "PRD", "00 İçindekiler"):
+            for parca in Path(rel).parent.parts:
+                ad_kelimeleri += _kelimeler(parca)
+
+        baslik: list[str] = []
+        for m in RE_H2.finditer(ham):
+            baslik += _kelimeler(m.group(1))
+
+        tetik_kume = sorted(set(tetik))
+        ad_kume = sorted(set(ad_kelimeleri) - set(tetik_kume))
+        baslik_kume = sorted(set(baslik) - set(tetik_kume) - set(ad_kume))[:ZAYIF_EN_FAZLA]
+        if not tetik_kume and not ad_kume and not baslik_kume:
+            continue
+        notlar.append({
+            "yol": rel, "ad": ad,
+            "tetik": tetik_kume, "adtetik": ad_kume, "baslik": baslik_kume,
+            # Geri uyumluluk: eski tüketiciler "zayif" anahtarını bekleyebilir.
+            "zayif": baslik_kume,
+        })
+    return {"uretildi": dt.datetime.now().isoformat(timespec="seconds"), "notlar": notlar}
+
+
+def tetik_yaz() -> int:
+    veri = tetik_indeksi()
+    try:
+        TETIK_HEDEF.parent.mkdir(parents=True, exist_ok=True)
+        TETIK_HEDEF.write_text(json.dumps(veri, ensure_ascii=False) + "\n", encoding="utf-8")
+    except OSError as e:
+        print(f"tetik-indeks.json yazılamadı: {e}", file=sys.stderr)
+        return 1
+    print(f"tetik-indeks.json üretildi: {len(veri['notlar'])} not")
+    return 0
+
+
 def main() -> int:
+    if "--tetik" in sys.argv:
+        return tetik_yaz()
     metin = uret()
     if "--goster" in sys.argv:
         print(metin, end="")
@@ -184,7 +369,8 @@ def main() -> int:
         print(f"index.md yazılamadı: {e}", file=sys.stderr)
         return 1
     print(f"index.md üretildi: {len(metin.splitlines())} satır")
-    return 0
+    # Tetik indeksi aynı taramanın ürünü; kök index ile beraber tazelenir.
+    return tetik_yaz()
 
 
 if __name__ == "__main__":

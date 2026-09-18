@@ -2,8 +2,8 @@
 
 <AD> seni düzelttiğinde ("bunu böyle yapma", "şöyle istiyorum") buraya kural olarak eklersin,
 nedeniyle birlikte. Bu dosya her oturum başında tamamen bağlama girer. Üslup kuralları anayasanın
-1. bölümündedir; burada tekrar etme. Derleyicinin çıkardığı adaylar `Kural Adayları.md` dosyasında
-bekler; <AD> onaylayınca buraya geçer.
+1. bölümündedir; burada tekrar etme. Gece bakımının çıkardığı adaylar `HAFIZA/Bekleyenler.md`
+dosyasında bekler; <AD> onaylayınca buraya geçer.
 
 - **kural:** Bir dosyayı değiştirmeden önce mevcut hâlini oku. **neden:** varsayımla yazmak
   içeriği bozuyor.

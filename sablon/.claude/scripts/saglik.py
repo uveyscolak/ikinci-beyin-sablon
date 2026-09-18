@@ -6,9 +6,8 @@ push gitti mi, aynı oturum iki kez özetlendi mi, linkler kopuk mu, yapı kural
 haftalık bakım zamanı geldi mi; hepsine makine bakar. Argümansız çağrı `tablo()` çıktısını
 insan için basar, `--linkler` vault genelindeki kırık wiki-link ve ölü düz metin yolların tam
 listesini dosya başına gruplu basar, `--yapi` anayasanın yapı kurallarını (öksüz sayfa, eksik
-proje çekirdeği, tek yönlü link, bayat kavram makalesi vb.) kategori başına gruplu basar,
-`--yaz` sonucu .state/saglik.json'a atomik yazar, `--bakim-yapildi` haftalık bakımın tarihini
-kaydeder.
+proje çekirdeği, tek yönlü link vb.) kategori başına gruplu basar, `--yaz` sonucu
+.state/saglik.json'a atomik yazar, `--bakim-yapildi` haftalık bakımın tarihini kaydeder.
 """
 from __future__ import annotations
 
@@ -25,6 +24,9 @@ from pathlib import Path
 VAULT = Path(__file__).resolve().parent.parent.parent
 STATE = VAULT / ".claude" / "scripts" / ".state"
 HAFTALIK_GUN = 7
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _sinirlar import sinirlar as _sinirlar_oku  # noqa: E402
 
 
 def _json(path: Path) -> dict:
@@ -47,15 +49,10 @@ def _mtime(p: Path) -> float:
 
 
 # --- Kırık wiki-link ve ölü düz metin yol taraması ---------------------------
-# Taranmayan klasörler: makine yazar ve tarihîdir (GÜNLÜK, BİLGİ), yedektir,
+# Taranmayan klasörler: makine yazar ve tarihîdir (GÜNLÜK), yedektir,
 # ya da vault notu değildir (.git, .obsidian, .claude, .trash).
-TARAMA_ATLA = {"GÜNLÜK", "BİLGİ", "YEDEK", ".git", ".obsidian", ".claude", ".trash"}
-# Kaynak olarak taranmayan ama link HEDEFİ olarak sayılan klasörler. BİLGİ makine
-# yazar, oradaki linkler bize bir şey söylemez; ama kavram makaleleri gerçek notlardır
-# ve Obsidian onlara giden linki çözer, kırık göstermez. Envanterde olmayınca
-# [[X-M5 Kılavuz Wiki]] gibi geçerli linkler kırık sayılıyordu.
-ENVANTER_EK = ("BİLGİ/kavramlar/",)
-KOK_KLASOR = "HAFIZA|GÜNLÜK|BİLGİ|GİZLİ|EĞİTİMLER|İŞ|KİŞİSEL|PROJELER|ASSETS|RAW|YEDEK|\\.claude"
+TARAMA_ATLA = {"GÜNLÜK", "YEDEK", ".git", ".obsidian", ".claude", ".trash"}
+KOK_KLASOR = "HAFIZA|GÜNLÜK|GİZLİ|EĞİTİMLER|İŞ|KİŞİSEL|PROJELER|ASSETS|RAW|YEDEK|\\.claude"
 RE_LINK = re.compile(r"!?\[\[([^\]\n]+?)\]\]")
 RE_FENCE = re.compile(r"(?ms)^\s*```.*?^\s*```")
 RE_INLINE = re.compile(r"`[^`\n]*`")
@@ -84,17 +81,9 @@ def _parcalar(rel: Path) -> tuple[str, ...]:
 
 
 def _taranir(parcalar: tuple[str, ...]) -> bool:
-    """Bir yol kaynak olarak taranır mı: TARAMA_ATLA uygulanır, BİLGİ özel durumdur.
-
-    BİLGİ altında yalnız BİLGİ/kavramlar/ gerçek nottur (kavram makaleleri); index.md,
-    log.md gibi makine üretimi diğer BİLGİ dosyaları hiçbir taramaya girmez. Yalnız
-    link_taramasi() kullanır; yapı taraması (_yapi_dosyalar) BİLGİ'yi tamamen dışarıda
-    bırakıyor, oraya bu fonksiyon karışmaz.
-    """
+    """Bir yol kaynak olarak taranır mı: TARAMA_ATLA uygulanır."""
     if not parcalar:
         return False
-    if parcalar[0] == "BİLGİ":
-        return len(parcalar) > 1 and parcalar[1] == "kavramlar"
     return not (set(parcalar) & TARAMA_ATLA)
 
 
@@ -106,15 +95,12 @@ def _tarihi_kayit(rel: Path) -> bool:
     beklenen durumdur, bozukluk değil; ölü yol taraması bunları atlar.
     Kırık wiki-link taraması bu dosyalarda sürer: Obsidian kırık linki kullanıcıya
     kırık gösterir, o yüzden düzeltilmesi gerekir.
-    BİLGİ/kavramlar/ da aynı muameleyi görür: derlenmiş makaleler geçmişi anlatır,
-    eski yol adı geçmesi doğaldır.
     """
     ad = _nfc(rel.name)
     return (
         ad.endswith(" Kararlar.md")
         or " Denetim-" in ad
         or _parcalar(rel)[:1] == ("HAFIZA",)
-        or _parcalar(rel)[:2] == ("BİLGİ", "kavramlar")
     )
 
 
@@ -167,15 +153,14 @@ def _egitime_gore_var(p: Path, aday: str, kokler: list[Path]) -> bool:
 def _envanter() -> tuple[set[str], set[str], set[str]]:
     """Link hedefi envanteri: dosya adları, uzantısız yollar ve tam yollar (NFC, casefold).
 
-    Taranmayan klasörler burada da atlanır; tek istisna ENVANTER_EK: oradaki dosyalar
-    kaynak olarak okunmaz ama hedef olarak vardır.
+    Taranmayan klasörler burada da atlanır.
     """
     adlar: set[str] = set()
     yollar: set[str] = set()
     tam: set[str] = set()
     for p in VAULT.rglob("*"):
         rel = p.relative_to(VAULT)
-        if set(_parcalar(rel)) & TARAMA_ATLA and not _nfc(str(rel)).startswith(ENVANTER_EK):
+        if set(_parcalar(rel)) & TARAMA_ATLA:
             continue
         if not p.is_file():
             continue
@@ -313,7 +298,7 @@ def linkler_raporu() -> str:
 # tetiği ve durumu olmalı, İŞ altındaki her klasör bir alana bağlanmalı, hub güncel.
 
 # Öksüz taramasından muaf kökler: makine yazar, gizlidir ya da vault notu değildir.
-YAPI_MUAF_KOK = {"HAFIZA", "GÜNLÜK", "BİLGİ", "GİZLİ", "YEDEK", ".git", ".obsidian", ".claude", ".trash"}
+YAPI_MUAF_KOK = {"HAFIZA", "GÜNLÜK", "GİZLİ", "YEDEK", ".git", ".obsidian", ".claude", ".trash"}
 # Bu adlar tasarım gereği linksizdir: katalog, anayasa, eğitim içindekileri, kişisel not dosyası.
 YAPI_MUAF_AD = {"CLAUDE.md", "index.md", "00 İçindekiler.md"}
 PROJE_CEKIRDEK = ("Proje", "Durum", "Kararlar", "PRD")
@@ -366,13 +351,7 @@ def alan_adi_oku(sayfa: Path, ad_dosyadan: str) -> str:
 
 
 def _yapi_dosyalar() -> list[Path]:
-    """Taranacak notlar: muaf kökler dışındaki bütün .md dosyaları.
-
-    BİLGİ (kavramlar dahil) burada tamamen dışarıda kalır: BİLGİ/index.md makalelerin
-    hub'ıdır, derleyici her makaleyi oraya yazar; öksüz sayfa kavramı BİLGİ için
-    anlamsızdır. Bayat makale kontrolü (bayatlama_taramasi) bu listeye bağlı değildir,
-    BİLGİ/kavramlar'ı kendi başına gezer.
-    """
+    """Taranacak notlar: muaf kökler dışındaki bütün .md dosyaları."""
     cikti = []
     for p in VAULT.rglob("*.md"):
         rel = p.relative_to(VAULT)
@@ -669,106 +648,138 @@ def _git(*args: str) -> str:
         return ""
 
 
-def _git_ts(yol: Path, filtre: str, follow: bool = False) -> float | None:
-    """Dosyanın git geçmişindeki ilgili son commit zamanı (unix epoch). Git'te yoksa None."""
-    args = ["log", "-1", "--format=%ct", f"--diff-filter={filtre}"]
-    if follow:
-        args.append("--follow")
-    args += ["--", str(yol.relative_to(VAULT))]
-    out = _git(*args)
-    return float(out) if out.strip().isdigit() else None
+# --- madde ve boyut sayımı -------------------------------------------------------------
+# Sınırlar beyin.json'daki "sinirlar" bölümünden gelir; script içinde sayı tutulmaz.
+# Kurallar dosyasında bir kural "- **" ile başlar, Açık Konular'da bir madde "### " başlığıdır.
+
+RE_KURAL_MADDE = re.compile(r"^-\s+\*\*")
+RE_KONU_MADDE = re.compile(r"^###\s+\S")
 
 
-def _tum_notlar_haritasi() -> dict[str, Path]:
-    """Bütün .md notlarının taban adı ve göreli yolu (uzantısız, casefold) -> tam yol.
+def _dosya_oku(yol: Path) -> str:
+    try:
+        return yol.read_text(encoding="utf-8")
+    except OSError:
+        return ""
 
-    Kavram makalesindeki [[hedef]] linkinin gerçek dosyaya çözümü için; BİLGİ ve
-    GÜNLÜK dosyaları da haritada durur (bayatlama_taramasi onları sonradan eler).
+
+def sayim_taramasi() -> dict:
+    """Kurallar ve Açık Konular'ın madde sayısı, üç hafıza dosyasının karakter sayısı.
+
+    Dönüş: {"HAFIZA/Kurallar.md": {"madde":.., "madde_sinir":.., "karakter":..,
+    "karakter_sinir":.., "asiyor": bool}, ...}. Sayı görünür kılınır, hiçbir şey zorlanmaz;
+    hangi maddelerin birleşeceğini Claude seçer.
     """
-    harita: dict[str, Path] = {}
-    for p in VAULT.rglob("*.md"):
-        rel = p.relative_to(VAULT)
-        harita.setdefault(_nfc(p.stem).casefold(), p)
-        harita.setdefault(_nfc(str(rel.with_suffix(""))).casefold(), p)
-    return harita
+    s = _sinirlar_oku(VAULT)
+    sonuc: dict[str, dict] = {}
 
+    kurallar = _dosya_oku(VAULT / "HAFIZA" / "Kurallar.md")
+    if kurallar:
+        madde = sum(1 for satir in kurallar.splitlines() if RE_KURAL_MADDE.match(satir.strip()))
+        sonuc["Kurallar"] = {
+            "madde": madde, "madde_sinir": s["kurallar_madde"],
+            "karakter": len(kurallar), "karakter_sinir": s["kurallar_karakter"],
+            "asiyor": madde > s["kurallar_madde"] or len(kurallar) > s["kurallar_karakter"],
+        }
 
-def bayatlama_taramasi() -> dict[str, list[tuple[str, str]]]:
-    """Kavram makalesi, linklediği vault notundan eski mi.
+    konular = _dosya_oku(VAULT / "HAFIZA" / "Açık Konular.md")
+    if konular:
+        madde = sum(1 for satir in konular.splitlines() if RE_KONU_MADDE.match(satir.strip()))
+        sonuc["Açık Konular"] = {
+            "madde": madde, "madde_sinir": s["acik_konular_madde"],
+            "karakter": len(konular), "karakter_sinir": s["acik_konular_karakter"],
+            "asiyor": madde > s["acik_konular_madde"] or len(konular) > s["acik_konular_karakter"],
+        }
 
-    Her BİLGİ/kavramlar/*.md için son değişiklik tarihi git'ten alınır (yoksa mtime).
-    Makaledeki [[hedef]] linklerinden BİLGİ ve GÜNLÜK dışındaki hedeflerin son İÇERİK
-    değişikliği (yalnız M; taşıma ve yeniden adlandırma sayılmaz) makaleden en az bir
-    gün yeniyse makale "bayat" sayılır. Dönüş: {makale_adı: [(hedef_adı, hedef_tarihi), ...]}.
-    """
-    kavramlar_dizin = VAULT / "BİLGİ" / "kavramlar"
-    if not kavramlar_dizin.is_dir():
-        return {}
-    harita = _tum_notlar_haritasi()
-    hedef_cache: dict[Path, float | None] = {}
-    sonuc: dict[str, list[tuple[str, str]]] = {}
-
-    for p in sorted(kavramlar_dizin.glob("*.md")):
-        makale_adi = _nfc(p.stem)
-        makale_ts = _git_ts(p, "AM")
-        if makale_ts is None:
-            makale_ts = _mtime(p)
-        try:
-            metin = p.read_text(encoding="utf-8", errors="replace")
-        except OSError:
-            continue
-        govde = RE_INLINE.sub(" ", RE_FENCE.sub(" ", metin))
-        bayat_hedefler: list[tuple[str, str]] = []
-        gorulen: set[Path] = set()
-        for m in RE_LINK.finditer(govde):
-            hedef = m.group(1).split("|")[0].split("#")[0].split("^")[0].strip()
-            if not hedef:
-                continue
-            k = _nfc(hedef).casefold()
-            if k.endswith(".md"):
-                k = k[:-3]
-            hedef_p = harita.get(k) or harita.get(k.rsplit("/", 1)[-1])
-            if hedef_p is None or hedef_p in gorulen:
-                continue
-            gorulen.add(hedef_p)
-            parcalar = _parcalar(hedef_p.relative_to(VAULT))
-            if parcalar[0] in ("BİLGİ", "GÜNLÜK"):
-                continue
-            if hedef_p not in hedef_cache:
-                ts = _git_ts(hedef_p, "M", follow=True)
-                hedef_cache[hedef_p] = ts if ts is not None else _mtime(hedef_p)
-            hedef_ts = hedef_cache[hedef_p]
-            if hedef_ts and hedef_ts - makale_ts >= 86400:
-                bayat_hedefler.append((_nfc(hedef_p.stem), dt.date.fromtimestamp(hedef_ts).isoformat()))
-        if bayat_hedefler:
-            sonuc[makale_adi] = bayat_hedefler
+    son_oturum = _dosya_oku(VAULT / "HAFIZA" / "Son Oturum.md")
+    if son_oturum:
+        sonuc["Son Oturum"] = {
+            "madde": None, "madde_sinir": None,
+            "karakter": len(son_oturum), "karakter_sinir": s["son_oturum_karakter"],
+            "asiyor": len(son_oturum) > s["son_oturum_karakter"],
+        }
     return sonuc
 
 
-def _bayat_ozet(bayat: dict[str, list[tuple[str, str]]]) -> str | None:
-    """kontrol() özetine giren tek satır: en fazla 3 makale adı, fazlası '+K'."""
-    if not bayat:
-        return None
-    adlar = sorted(bayat)
-    parca = [f"{ad} ({bayat[ad][0][0]}'ten)" for ad in adlar[:3]]
-    ekstra = len(adlar) - 3
-    metin = ", ".join(parca) + (f", +{ekstra}" if ekstra > 0 else "")
-    return f"BİLGİ: {len(adlar)} makale kaynağından eski: {metin}"
+# --- bağlanmamış iş dosyası taraması ---------------------------------------------------
+# Kullanıcı kendi notunu Obsidian'da yazıyor ve Claude onu hiç görmüyor; tek köprü
+# ilgili Durum dosyasının "## Kaynaklar" listesidir. Ölçü "bağlantı almayan dosya" değil
+# "Kaynaklar listesinde geçmeyen dosya"; kullanıcının dosyaları birbirine zaten link veriyor.
+
+BAGLANMAMIS_GUN = 7
+BAGLANMAMIS_KUCUK = 2000
 
 
-def bayat_raporu(bayat: dict[str, list[tuple[str, str]]]) -> list[str]:
-    """--yapi çıktısına eklenen '## bayat makale' bölümü: tam liste."""
-    satirlar = [f"## bayat makale ({len(bayat)})"]
-    if not bayat:
-        satirlar.append("    temiz")
-        satirlar.append("")
-        return satirlar
-    for ad in sorted(bayat):
-        satirlar.append(f"    {ad}")
-        for hedef_adi, tarih in bayat[ad]:
-            satirlar.append(f"        {hedef_adi} ({tarih}'ten)")
-    satirlar.append("")
-    return satirlar
+def _kaynaklar_metni() -> str:
+    """Bütün BEYİN/Durum.md dosyalarının "## Kaynaklar" bölümleri ve bütün Alan.md içerikleri.
+
+    Tek bir metinde birleştirilir; bir dosyanın yolu ya da adı bu metinde geçiyorsa
+    o dosya bağlanmış sayılır.
+    """
+    parca: list[str] = []
+    for kok_adi in (_ayar().get("alan_kokleri") or ["İŞ", "KİŞİSEL"]):
+        kok = VAULT / kok_adi
+        if not kok.is_dir():
+            continue
+        for p in kok.rglob("BEYİN/*.md"):
+            ad = _nfc(p.name)
+            if ad == "Alan.md":
+                parca.append(_dosya_oku(p))
+            elif ad == "Durum.md":
+                metin = _dosya_oku(p)
+                bloklar = re.split(r"(?m)^##\s+", metin)
+                for blok in bloklar:
+                    if blok.strip().lower().startswith("kaynaklar"):
+                        parca.append(blok)
+    projeler = VAULT / "PROJELER"
+    if projeler.is_dir():
+        for p in projeler.rglob("Durum.md"):
+            metin = _dosya_oku(p)
+            for blok in re.split(r"(?m)^##\s+", metin):
+                if blok.strip().lower().startswith("kaynaklar"):
+                    parca.append(blok)
+    return _nfc("\n".join(parca))
+
+
+def baglanmamis_taramasi() -> list[dict]:
+    """Son yedi günde değişmiş, hiçbir Kaynaklar listesinde geçmeyen kullanıcı iş dosyaları.
+
+    Kapsam: İŞ ve KİŞİSEL altında, yolu BEYİN içermeyen .md dosyaları. En fazla
+    `baglanmamis_en_fazla` kayıt döner; dosya küçükse ilk üç satırı da taşınır, çünkü
+    "işaret etme, önüne koy".
+    """
+    s = _sinirlar_oku(VAULT)
+    esik = time.time() - BAGLANMAMIS_GUN * 86400
+    kaynaklar = _kaynaklar_metni()
+    adaylar: list[tuple[float, dict]] = []
+    for kok_adi in (_ayar().get("alan_kokleri") or ["İŞ", "KİŞİSEL"]):
+        kok = VAULT / kok_adi
+        if not kok.is_dir():
+            continue
+        for p in kok.rglob("*.md"):
+            rel = p.relative_to(VAULT)
+            parcalar = _parcalar(rel)
+            if "BEYİN" in parcalar or any(x.startswith(".") for x in parcalar):
+                continue
+            ts = _mtime(p)
+            if ts < esik:
+                continue
+            yol = _nfc(str(rel))
+            ad = _nfc(p.stem)
+            if yol in kaynaklar or ad in kaynaklar:
+                continue
+            kayit: dict = {"yol": yol}
+            try:
+                boyut = p.stat().st_size
+            except OSError:
+                boyut = 0
+            if boyut and boyut < BAGLANMAMIS_KUCUK:
+                satirlar = [x.strip() for x in _dosya_oku(p).splitlines() if x.strip()]
+                if satirlar:
+                    kayit["bas"] = " / ".join(satirlar[:3])[:300]
+            adaylar.append((ts, kayit))
+    adaylar.sort(key=lambda x: x[0], reverse=True)
+    return [k for _, k in adaylar[: s["baglanmamis_en_fazla"]]]
 
 
 def kontrol() -> dict:
@@ -848,7 +859,7 @@ def kontrol() -> dict:
     if len(bekleyen) > 150:
         sorunlar.append(f"{len(bekleyen)} dosya commit bekliyor; oturum sonu commit'i çalışmıyor olabilir.")
 
-    # 7) Vault geneli kırık wiki-link ve ölü düz metin yol (BİLGİ/kavramlar dahil)
+    # 7) Vault geneli kırık wiki-link ve ölü düz metin yol
     lt = link_taramasi()
     n_kirik, n_olu = len(lt["kirik"]), len(lt["olu"])
     if n_kirik:
@@ -877,14 +888,6 @@ def kontrol() -> dict:
     yapi_satir = yapi_ozet(yapi)
     bilgi.extend(yapi_satir)
 
-    # 7c) Bayat kavram makalesi (kaynağından eski)
-    try:
-        bayat_satir = _bayat_ozet(bayatlama_taramasi())
-    except Exception as e:  # bayatlama yardımcı kontroldür, ana kontrolü düşürmesin
-        bayat_satir = f"Bayatlama taraması çalışmadı: {type(e).__name__}: {e}"
-    if bayat_satir:
-        bilgi.append(bayat_satir)
-
     # 8) Haftalık bakım
     hb = _json(STATE / "haftalik.json")
     son = hb.get("son")
@@ -903,10 +906,23 @@ def kontrol() -> dict:
     aday = _aday_say("Kural Adayları.md")
     celiski = _aday_say("Çelişki Adayları.md")
 
+    try:
+        sayim = sayim_taramasi()
+    except Exception as e:  # sayım yardımcı kontroldür, ana kontrolü düşürmesin
+        sayim = {}
+        bilgi.append(f"Sayım taraması çalışmadı: {type(e).__name__}: {e}")
+    try:
+        baglanmamis_kayit = baglanmamis_taramasi()
+    except Exception as e:
+        baglanmamis_kayit = []
+        bilgi.append(f"Bağlanmamış dosya taraması çalışmadı: {type(e).__name__}: {e}")
+
     return {
         "ts": int(simdi),
         "sorunlar": sorunlar,
         "bilgi": bilgi,
+        "sayim": sayim,
+        "baglanmamis": baglanmamis_kayit,
         "haftalik": haftalik,
         "haftalik_son": son,
         "kural_adayi": aday,
@@ -941,8 +957,26 @@ def main() -> int:
         print(linkler_raporu())
         return 0
     if "--yapi" in sys.argv:
-        cikti = yapi_raporu().rstrip("\n") + "\n\n" + "\n".join(bayat_raporu(bayatlama_taramasi()))
-        print(cikti)
+        print(yapi_raporu())
+        return 0
+    if "--sayim" in sys.argv and "--yaz" not in sys.argv:
+        s = sayim_taramasi()
+        if not s:
+            print("sayılacak hafıza dosyası bulunamadı")
+            return 0
+        for ad, d in s.items():
+            durum = "AŞIYOR" if d["asiyor"] else "tamam"
+            karakter = f"{d['karakter']:,} / {d['karakter_sinir']:,} karakter".replace(",", ".")
+            if d.get("madde") is not None:
+                print(f"{ad}: {d['madde']}/{d['madde_sinir']} madde, {karakter} — {durum}")
+            else:
+                print(f"{ad}: {karakter} — {durum}")
+        return 0
+    if "--baglanmamis" in sys.argv:
+        for kayit in baglanmamis_taramasi():
+            print(kayit["yol"])
+            if kayit.get("bas"):
+                print("   ", kayit["bas"])
         return 0
     if "--bakim-yapildi" in sys.argv:
         STATE.mkdir(parents=True, exist_ok=True)

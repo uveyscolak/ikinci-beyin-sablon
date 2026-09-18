@@ -1,6 +1,16 @@
 #!/usr/bin/env python3
-"""Kullanıcının istemi bir projeye ya da çalışma alanına değiniyorsa onun kurallarını
-ve güncel durumunu enjekte eder."""
+"""Kullanıcının istemi bir projeye ya da çalışma alanına değiniyorsa onun kurallarını,
+güncel durumunu ve kaynaklarını enjekte eder; ayrıca tetik indeksinden tek satır ipucu basar.
+
+Eşleşme kelime bazlıdır, alt dize değil. Eskiden "görsel üretim" cümlesi OPERASYON alanının
+"üretim" tetiğini de uyandırıyordu, "atölye e-tablosuna bakalım" ise hiçbir şeyi
+uyandırmıyordu. Artık istem kelimelere ayrılır ve bir tetik yalnız bir kelimenin BAŞIYLA
+eşleşirse tetiklenir; Türkçe ekler böyle karşılanır ("kampanya" tetiği "kampanyayı" ile
+eşleşir), gövde içinde geçen kelime eşleşmez.
+
+Bütün tavanlar beyin.json'daki "sinirlar" bölümünden gelir; bu dosyada sayı tutulmaz.
+Toplam çıktı `kanca_istem_karakter` (8.500) sınırını kesinlikle aşmaz.
+"""
 from __future__ import annotations
 
 import hashlib
@@ -11,73 +21,62 @@ import sys
 import unicodedata
 from pathlib import Path
 
-KURALLAR_TAVAN = 12000
-DURUM_TAVAN = 8000
-TOPLAM_TAVAN = 40000
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
+from _sinirlar import sinirlar as _sinirlar_oku  # noqa: E402
+
 EN_FAZLA_PROJE = 2
-EN_FAZLA = 3
+EN_FAZLA = 2
 ALAN_KOKLERI = ["İŞ", "KİŞİSEL"]
 ALAN_DERINLIK = 4
-EN_KISA_TETIK = 3
+EN_KISA_TETIK = 4        # tetik en az dört harf olmalı; kısası gürültü üretir
+IPUCU_TAVAN = 300
+EGITIM_TAVAN = 1000
+KARARLAR_EN_FAZLA = 3
+
+# --- tetik ipucu puanlaması -------------------------------------------------------------
+# Eskiden her eşleşme tek puandı ve "tmm devam edelim", "günaydın bitti mi" gibi genel
+# cümleler bile üçer not basıyordu. Artık kaynağa göre ağırlıklandırılır: açık "Tetik:"
+# satırı ya da Alan.md tetik listesi en güçlü işarettir, dosya adı orta, `## ` başlığı en
+# zayıf. Yalnız toplam puanı IPUCU_ESIK'i geçen notlar basılır.
+IPUCU_PUAN_TETIK = 3
+IPUCU_PUAN_AD = 2
+IPUCU_PUAN_BASLIK = 1
+IPUCU_ESIK = 3
+EN_KISA_IPUCU = 6        # normal kelime kökü için en az altı harf
+EN_KISA_IPUCU_TETIK = 4  # tetik listesinden gelen kelime için en az dört harf yeter
+IPUCU_EN_AZ_KELIME = 3   # istem üç anlamlı kelimeden kısaysa ipucu hiç basılmaz
+
+# İstemdeki gürültü kelimeleri: günlük konuşma dolgusu ve vault jargonu. Bunlar tek
+# başına hiçbir notu tetiklemez; aksi halde "tmm devam edelim" gibi cümleler bile
+# rastgele bir Durum ya da Kararlar dosyasını uyandırıyordu.
+IPUCU_DURAK = {
+    "devam", "edelim", "bakalım", "kontrol", "yapalım", "bitti", "günaydın", "tamam",
+    "tmm", "şimdi", "sonra", "önce", "bugün", "dün", "yarın", "olsun", "gibi", "için",
+    "nasıl", "nedir", "hangi", "neyi", "şunu", "bunu", "onu", "dosya", "dosyası",
+    "durum", "kararlar", "notlar", "not", "proje", "alan", "iyi", "merhaba", "selam",
+    "teşekkür", "sağol", "lütfen", "rica", "acaba", "belki", "galiba", "sanırım",
+    "aslında", "yani", "işte", "tabii", "peki", "evet", "hayır", "olabilir", "olur",
+    "olmaz", "istiyorum", "istiyorsun", "gerekiyor", "lazım", "biraz", "hemen",
+    "az", "çok", "her", "hep", "hiç", "ama", "veya", "ile", "ve", "bir", "bu", "şu",
+    "ne", "mi", "mı", "mu", "mü", "de", "da", "ki", "diye", "göre", "kadar", "daha",
+    "en", "var", "yok", "oldu", "olacak", "yaptım", "yapayım", "bakayım", "geldi",
+    "gitti", "başla", "başlayalım", "devam", "kaldık", "kaldı", "nerede",
+}
+
+
+def _ipucu_kelime_gecerli(kelime: str, en_kisa: int) -> bool:
+    return len(kelime) >= en_kisa and kelime not in IPUCU_DURAK
+
 RE_FRONTMATTER_AD = re.compile(r"^ad:\s*(.+)$", re.MULTILINE)
-
-
-def proje_cekirdek(klasor, tur):
-    """Proje klasöründe `Durum`, `Kararlar`, `PRD`, `Kurallar` dosyasını bulur (BEYİN alt klasörü yok)."""
-    sade = klasor / f"{tur}.md"
-    return sade if sade.is_file() else None
-
-
-def alan_cekirdek(beyin_klasor, tur):
-    """Alanın `BEYİN/` klasöründe `Durum`, `Kararlar`, `Kurallar`, `Alan` dosyasını bulur."""
-    sade = beyin_klasor / f"{tur}.md"
-    return sade if sade.is_file() else None
-
-
-def alan_dosyasi_mi(isim):
-    return isim == "Alan.md"
-
-
-def alan_adi_oku(sayfa, ad_dosyadan):
-    """`Alan.md` ise frontmatter'daki `ad:` alanını okur; yoksa/eksikse dosyadan türetilen adı döner."""
-    if sayfa.name != "Alan.md":
-        return ad_dosyadan
-    try:
-        with sayfa.open("r", encoding="utf-8") as f:
-            bas = f.read(2048)
-    except OSError:
-        return ad_dosyadan
-    satirlar = bas.splitlines()
-    if not satirlar or satirlar[0].strip() != "---":
-        return ad_dosyadan
-    son = None
-    for i, satir in enumerate(satirlar[1:], 1):
-        if satir.strip() in ("---", "..."):
-            son = i
-            break
-    if son is None:
-        return ad_dosyadan
-    blok = "\n".join(satirlar[1:son])
-    eslesme = RE_FRONTMATTER_AD.search(blok)
-    if eslesme:
-        deger = eslesme.group(1).strip().strip("\"'").strip()
-        if deger:
-            return deger
-    return ad_dosyadan
-# BİLGİ katmanı: proje ya da alan enjekte edilirken indeksten ilgili kavram satırları
-BILGI_EN_FAZLA = 5
-BILGI_OZET = 120
-BILGI_EN_KISA_KELIME = 6  # tetikten anahtar üretirken: 5 karakterden uzun kelimeler
-
-# Tablo satırı: "| [[Ad]] | özet | kaynak | güncellendi |"
-RE_INDEKS_SATIR = re.compile(r"^\|\s*(\[\[[^\]]+\]\])\s*\|(.*)$")
-# Özet metninde kaçışlı boru (`curl \| bash`) geçebiliyor; yalnız kaçışsız borudan böl.
+RE_ILK_LINK = re.compile(r"\[\[([^|\]]+)")
 RE_KACISSIZ_BORU = re.compile(r"(?<!\\)\|")
+RE_BASLIK = re.compile(r"(?m)^##\s+(.+?)\s*$")
+RE_GOVDE_TETIK = re.compile(r"(?mi)^\s*tetik\s*:\s*(.+)$")
+RE_KARAR_BASLIK = re.compile(r"(?m)^##\s+(\[[^\]]+\].*?)\s*$")
 
 
 def nfc(metin: str) -> str:
     # Diskteki adlar NFD gelebilir ("İŞ" = I + birleşen nokta); istemdeki metin NFC'dir.
-    # Karşılaştırmadan önce ikisi de aynı biçime çekilmezse eşleşme sessizce kaçar.
     return unicodedata.normalize("NFC", metin)
 
 
@@ -86,85 +85,231 @@ def kucult(metin: str) -> str:
     return nfc(metin).replace("İ", "i").replace("I", "ı").lower()
 
 
+def sadelestir(metin: str) -> str:
+    """Türkçe harfleri ASCII karşılığına indirir; eşleşme aksandan bağımsız olsun."""
+    d = {"ç": "c", "ğ": "g", "ı": "i", "ö": "o", "ş": "s", "ü": "u", "â": "a", "î": "i", "û": "u"}
+    return "".join(d.get(k, k) for k in kucult(metin))
+
+
+def kelimelere_ayir(metin: str) -> list[str]:
+    """İstemi eşleşmeye hazır kelimelere ayırır: küçük harf, Türkçe sadeleştirilmiş."""
+    return [k for k in re.split(r"[^0-9a-zçğıöşü]+", kucult(metin)) if k]
+
+
+def kelime_kokleri(metin: str) -> list[str]:
+    return [sadelestir(k) for k in kelimelere_ayir(metin)]
+
+
+def tetik_eslesti(tetik: str, kelimeler: list[str], en_kisa: int) -> bool:
+    """Tetik istemdeki bir kelimenin başıyla eşleşiyor mu.
+
+    Tek kelimelik tetik: bir kelime tetikle BAŞLIYORSA eşleşir ("kampanyayı" ~ "kampanya").
+    Çok kelimeli tetik ("görsel üretim"): parçaları istemde aynı sırayla ardışık geçmeli.
+    """
+    parcalar = [sadelestir(p) for p in re.split(r"[\s/,-]+", tetik) if p.strip()]
+    parcalar = [p for p in parcalar if p]
+    if not parcalar:
+        return False
+    if any(len(p) < en_kisa for p in parcalar):
+        return False
+    if len(parcalar) == 1:
+        return any(k.startswith(parcalar[0]) for k in kelimeler)
+    n = len(parcalar)
+    for i in range(len(kelimeler) - n + 1):
+        if all(kelimeler[i + j].startswith(parcalar[j]) for j in range(n)):
+            return True
+    return False
+
+
+def proje_cekirdek(klasor: Path, tur: str) -> Path | None:
+    sade = klasor / f"{tur}.md"
+    return sade if sade.is_file() else None
+
+
+def alan_cekirdek(beyin_klasor: Path, tur: str) -> Path | None:
+    sade = beyin_klasor / f"{tur}.md"
+    return sade if sade.is_file() else None
+
+
+def alan_dosyasi_mi(isim: str) -> bool:
+    return isim == "Alan.md"
+
+
+def _onblok(yol: Path) -> str | None:
+    """Dosyanın başındaki `---` bloğunu döner; blok yoksa None."""
+    try:
+        with yol.open("r", encoding="utf-8") as f:
+            bas = f.read(2048)
+    except OSError:
+        return None
+    satirlar = bas.splitlines()
+    if not satirlar or satirlar[0].strip() != "---":
+        return None
+    for i, satir in enumerate(satirlar[1:], 1):
+        if satir.strip() in ("---", "..."):
+            return "\n".join(satirlar[1:i])
+    return None
+
+
+def alan_adi_oku(sayfa: Path, ad_dosyadan: str) -> str:
+    """`Alan.md` ise ön bloktaki `ad:` alanını okur; yoksa dosyadan türetilen adı döner."""
+    if sayfa.name != "Alan.md":
+        return ad_dosyadan
+    blok = _onblok(sayfa)
+    if blok is None:
+        return ad_dosyadan
+    eslesme = RE_FRONTMATTER_AD.search(blok)
+    if eslesme:
+        deger = eslesme.group(1).strip().strip("\"'").strip()
+        if deger:
+            return deger
+    return ad_dosyadan
+
+
+def tetikleri_oku(yol: Path) -> list[str]:
+    """Alan sayfasının ön bloğundaki `tetik:` listesi.
+
+    Üç biçim: `tetik: [a, b]`, `tetik: a, b` ve alt satırlarda `- a`. pyyaml yok; kanca
+    her istemde çalıştığı için bağımlılık istemiyoruz.
+    """
+    blok = _onblok(yol)
+    if blok is None:
+        return []
+    satirlar = blok.splitlines()
+    ham: list[str] = []
+    i = 0
+    while i < len(satirlar):
+        eslesme = re.match(r"^tetik\s*:\s*(.*)$", satirlar[i])
+        if not eslesme:
+            i += 1
+            continue
+        kalan = eslesme.group(1).strip()
+        if kalan:
+            ham += kalan.strip("[]").split(",")
+        else:
+            j = i + 1
+            while j < len(satirlar):
+                alt = re.match(r"^\s*-\s+(.+?)\s*$", satirlar[j])
+                if not alt:
+                    break
+                ham.append(alt.group(1))
+                j += 1
+            i = j - 1
+        i += 1
+    return [p.strip().strip("\"'").strip() for p in ham if p.strip().strip("\"'").strip()]
+
+
+def govde_tetikleri(yol: Path | None) -> list[str]:
+    """Proje ya da alan sayfasının gövdesinde başlığın altındaki "Tetik: a, b" satırı.
+
+    Ön blok yasak olduğu için proje sayfaları tetiklerini gövdede taşır; ilk 2.000
+    karakterde aranır, tek satırdır.
+    """
+    if yol is None or not yol.is_file():
+        return []
+    try:
+        with yol.open("r", encoding="utf-8") as f:
+            bas = f.read(2048)
+    except OSError:
+        return []
+    eslesme = RE_GOVDE_TETIK.search(bas)
+    if not eslesme:
+        return []
+    return [p.strip().strip("\"'").strip() for p in eslesme.group(1).split(",") if p.strip()]
+
+
 def kirp(metin: str, tavan: int, not_metni: str) -> str:
     metin = metin.strip()
     if len(metin) <= tavan:
         return metin
-    return metin[: tavan - len(not_metni) - 1] + "\n" + not_metni
+    return metin[: max(0, tavan - len(not_metni) - 1)].rstrip() + "\n" + not_metni
 
 
-def indeks_satirlari(vault: Path) -> list[tuple[str, str, str]]:
-    """BİLGİ/index.md tablosunu (link, özet, güncellendi) üçlülerine ayrıştırır.
+def alanlari_bul(vault: Path, kokler: list[str]) -> list[tuple[str, Path]]:
+    """Alan köklerinin altında en çok ALAN_DERINLIK katmanda `BEYİN/Alan.md` arar."""
+    bulunan: list[tuple[str, Path]] = []
+    for kok_adi in kokler:
+        kok = vault / kok_adi
+        if not kok.is_dir():
+            continue
+        temel = len(kok.parts)
+        for dizin, altlar, dosyalar in os.walk(kok):
+            simdiki = Path(dizin)
+            if len(simdiki.parts) - temel >= ALAN_DERINLIK - 1:
+                altlar[:] = []
+            else:
+                altlar[:] = [a for a in altlar if not a.startswith(".")]
+            if simdiki.name != "BEYİN":
+                continue
+            for dosya in dosyalar:
+                isim = nfc(dosya)
+                if alan_dosyasi_mi(isim):
+                    sayfa = simdiki / dosya
+                    bulunan.append((alan_adi_oku(sayfa, simdiki.parent.name), sayfa))
+    bulunan.sort(key=lambda p: p[0])
+    return bulunan
 
-    Kavram makaleleri derleyicinin ürettiği bilgi katmanıdır; buraya kadar hiç
-    okunmuyordu. Enjeksiyonda ilgili satırları göstermek için tablo ayrıştırılır.
+
+def durum_kaynaklar_ayikla(durum_metni: str) -> tuple[str, list[str]]:
+    """Durum metnindeki `## Kaynaklar` bölümünü ayıklar.
+
+    Döner: (kaynaklar bölümü çıkarılmış metin, madde satırları listesi).
+    Bölüm dosyanın sonunda olduğu için kırpma onu düşürüyordu; bu yüzden kırpmadan önce
+    ayrı çıkarılır, kırpma boşa gitmez. Bu koruma bilerek korunuyor.
     """
+    eslesmeler = list(RE_BASLIK.finditer(durum_metni))
+    for i, m in enumerate(eslesmeler):
+        if m.group(1).strip().casefold() != "kaynaklar":
+            continue
+        bas = m.start()
+        bit = eslesmeler[i + 1].start() if i + 1 < len(eslesmeler) else len(durum_metni)
+        bolum = durum_metni[m.end():bit]
+        maddeler = [
+            satir.strip()[2:].strip()
+            for satir in bolum.splitlines()
+            if satir.strip().startswith("- ")
+        ]
+        kalan = (durum_metni[:bas] + durum_metni[bit:]).strip()
+        return kalan, maddeler
+    return durum_metni, []
+
+
+def su_an_ayikla(durum_metni: str, tavan: int) -> str:
+    """Durum'un "## Şu An" bölümü; başlık yoksa geçiş döneminde dosyanın ilk `tavan` karakteri.
+
+    Durum dosyaları Faz 3'te yeni biçime geçecek; o güne kadar eski dosyalar da çalışsın diye
+    başlık bulunamazsa dosyanın başı alınır.
+    """
+    eslesmeler = list(RE_BASLIK.finditer(durum_metni))
+    for i, m in enumerate(eslesmeler):
+        if m.group(1).strip().casefold() not in ("şu an", "su an"):
+            continue
+        bit = eslesmeler[i + 1].start() if i + 1 < len(eslesmeler) else len(durum_metni)
+        return kirp(durum_metni[m.end():bit], tavan, "[not: Şu An kırpıldı, dosyayı aç]")
+    return kirp(durum_metni, tavan, "[not: Durum kırpıldı, dosyayı aç]")
+
+
+def son_kararlar(kararlar: Path | None, en_fazla: int) -> str:
+    """Kararlar.md'nin en son `## [tarih] ...` başlıkları, tek satır halinde.
+
+    Gerekçe katmanı bugüne kadar hiç basılmıyordu; başlıkların gelmesi "gerekçe var ve
+    şurada" bilgisini bağlama sokar, ayrıntı çekilerek okunur.
+    """
+    if kararlar is None or not kararlar.is_file():
+        return ""
     try:
-        metin = (vault / "BİLGİ" / "index.md").read_text(encoding="utf-8")
+        metin = kararlar.read_text(encoding="utf-8")
     except OSError:
-        return []
-    kayitlar: list[tuple[str, str, str]] = []
-    for satir in metin.splitlines():
-        eslesme = RE_INDEKS_SATIR.match(satir.strip())
-        if not eslesme:
-            continue
-        link = nfc(eslesme.group(1))
-        parcalar = [p.strip() for p in RE_KACISSIZ_BORU.split(eslesme.group(2))]
-        while parcalar and not parcalar[-1]:
-            parcalar.pop()
-        if len(parcalar) < 3:
-            continue
-        kayitlar.append((link, nfc(parcalar[0]), nfc(parcalar[-1])))
-    return kayitlar
-
-
-def bilgi_anahtarlari(ad: str, tetikler: list[str]) -> list[str]:
-    """Eşleme anahtarları: adın kendisi ve tetiklerin 5 karakterden uzun kelimeleri."""
-    anahtarlar = {kucult(ad)}
-    for tetik in tetikler:
-        for kelime in re.split(r"[\s,/]+", tetik):
-            kelime = kelime.strip(".:;()[]\"'").strip()
-            if len(kelime) >= BILGI_EN_KISA_KELIME:
-                anahtarlar.add(kucult(kelime))
-    return [a for a in anahtarlar if a]
-
-
-def bilgi_blogu(kayitlar: list[tuple[str, str, str]], anahtarlar: list[str]) -> str:
-    """İndeks satırlarından anahtarlarla eşleşenleri kısa bir blok olarak döndürür.
-
-    En yeni "güncellendi" tarihi önce gelir, en fazla beş satır. Eşleşme yoksa boş.
-    """
-    if not kayitlar or not anahtarlar:
         return ""
-    secilen: list[tuple[str, str, str]] = []
-    for link, ozet, guncellendi in kayitlar:
-        govde_metni = kucult(link + " " + ozet)
-        if any(anahtar in govde_metni for anahtar in anahtarlar):
-            secilen.append((link, ozet, guncellendi))
-    if not secilen:
+    basliklar = [m.group(1).strip() for m in RE_KARAR_BASLIK.finditer(metin)]
+    if not basliklar:
         return ""
-    # Sıralama kararlıdır: aynı tarihli satırlar indeksteki sırasını korur.
-    secilen.sort(key=lambda k: k[2], reverse=True)
-    satirlar = ["\n--- BİLGİ'de ilgili kavramlar ---"]
-    for link, ozet, guncellendi in secilen[:BILGI_EN_FAZLA]:
-        kisa = ozet[:BILGI_OZET].rstrip()
-        satirlar.append(f"- {link} — {kisa} (güncellendi: {guncellendi})")
-    return "\n".join(satirlar)
-
-
-# Eğitim kaynakları bloğu: alan/proje tetiklenince BEYİN/TARİFLER (proje için TARİFLER)
-# klasöründeki damıtılmış tarifler, Durum'daki Kaynaklar maddeleri ve EĞİTİMLER/YOUTUBE'daki
-# ilgili videolar tek blokta gösterilir; kullanıcı hatırlatmasın.
-EGITIM_TAVAN = 3000
-RE_ILK_LINK = re.compile(r"\[\[([^|\]]+)")
+    secilen = basliklar[-en_fazla:][::-1]
+    return "Son kararlar: " + " | ".join(s[:70] for s in secilen)
 
 
 def _tarif_aciklama(dosya: Path) -> str:
-    """Tarif dosyasının H1'inden sonraki ilk boş olmayan, başlık olmayan satırını döner.
-
-    Baştaki `> ` (alıntı) ve `**...**` (kalın) gibi işaretler atılır, 120 karakterde kesilir.
-    Açıklama bulunamazsa boş döner.
-    """
+    """Tarif dosyasının H1'inden sonraki ilk anlamlı satırı, 120 karakterde kesilmiş."""
     try:
         satirlar = dosya.read_text(encoding="utf-8", errors="replace").splitlines()
     except OSError:
@@ -178,9 +323,7 @@ def _tarif_aciklama(dosya: Path) -> str:
             continue
         if not s or s.startswith("#"):
             continue
-        s = s.lstrip(">").strip()
-        s = s.replace("**", "").strip()
-        # "Kaynak: 2026-07-28 oturumu" gibi üst bilgi satırları açıklama değildir; atla.
+        s = s.lstrip(">").strip().replace("**", "").strip()
         if not s or re.match(r"^(Kaynak|Tarih|Eklendi|Güncellendi|Durum)\s*:", s):
             continue
         return s[:120].rstrip()
@@ -188,10 +331,7 @@ def _tarif_aciklama(dosya: Path) -> str:
 
 
 def tarifler_maddeleri(vault: Path, tarifler_klasor: Path) -> list[str]:
-    """`<alan/proje>/[BEYİN/]TARİFLER/*.md` dosyalarını ad sırasıyla listeler.
-
-    Biçim: `[[<vault'a göre yol, uzantısız>|<dosya adı>]] — <açıklama>` (açıklama yoksa atlanır).
-    """
+    """`TARİFLER/*.md` dosyalarını `[[yol|ad]] — açıklama` biçiminde listeler."""
     if not tarifler_klasor.is_dir():
         return []
     sonuc = []
@@ -203,20 +343,12 @@ def tarifler_maddeleri(vault: Path, tarifler_klasor: Path) -> list[str]:
         yol = nfc(str(rel.with_suffix("")))
         ad = nfc(dosya.stem)
         aciklama = _tarif_aciklama(dosya)
-        if aciklama:
-            sonuc.append(f"[[{yol}|{ad}]] — {aciklama}")
-        else:
-            sonuc.append(f"[[{yol}|{ad}]]")
+        sonuc.append(f"[[{yol}|{ad}]] — {aciklama}" if aciklama else f"[[{yol}|{ad}]]")
     return sonuc
 
 
 def youtube_alan_maddeleri(vault: Path, alan_klasor_rel: str) -> list[str]:
-    """`EĞİTİMLER/YOUTUBE/00 İçindekiler.md` tablosunda Alan sütunu verilen alan klasörüne
-    (`<alan klasörü>/BEYİN/Alan`) giden satırları `- [[yol|başlık]] — özet` biçiminde döner.
-
-    Yol eşleşmesi yeter, alias'a bakılmaz. Tablo hücreleri kaçışlı boru içerebiliyor
-    (`\\|` bir wiki-link içinde), bu yüzden kaçışsız borudan bölünür (RE_KACISSIZ_BORU).
-    """
+    """`EĞİTİMLER/YOUTUBE/00 İçindekiler.md` tablosunda bu alana bağlanan video notları."""
     try:
         metin = (vault / "EĞİTİMLER" / "YOUTUBE" / "00 İçindekiler.md").read_text(encoding="utf-8")
     except OSError:
@@ -228,8 +360,6 @@ def youtube_alan_maddeleri(vault: Path, alan_klasor_rel: str) -> list[str]:
         if not s.startswith("|") or set(s) <= {"|", "-", " "}:
             continue
         hucreler = [p.strip() for p in RE_KACISSIZ_BORU.split(s)]
-        hucreler = [h for h in hucreler if h or hucreler.index(h) not in (0, len(hucreler) - 1)]
-        # Baştaki ve sondaki boş hücreler (satırın kenar boruları) atılır.
         if hucreler and hucreler[0] == "":
             hucreler = hucreler[1:]
         if hucreler and hucreler[-1] == "":
@@ -252,183 +382,46 @@ def youtube_alan_maddeleri(vault: Path, alan_klasor_rel: str) -> list[str]:
     return sonuc
 
 
-def egitim_kaynaklari_blogu(
-    ad: str, tarif_maddeler: list[str], durum_maddeler: list[str], youtube_maddeler: list[str]
-) -> str:
-    """TARİFLER, Durum'daki Kaynaklar maddeleri ve YouTube eşleşmelerini tek blokta birleştirir.
-
-    Sıra: (1) TARİFLER, (2) Durum Kaynakları, (3) YouTube. Bir yol daha önce geçtiyse
-    (hangi kaynaktan olursa olsun) tekrar eklenmez, ilk geçtiği yerde kalır. Üç kaynak da
-    boşsa boş döner (blok hiç basılmaz). EGITIM_TAVAN'ı aşarsa madde sayısı kesilir.
-    """
+def egitim_kaynaklari_blogu(tarif_maddeler: list[str], durum_maddeler: list[str],
+                            youtube_maddeler: list[str], tavan: int) -> str:
+    """TARİFLER, Durum'daki Kaynaklar maddeleri ve YouTube eşleşmelerini tek blokta birleştirir."""
     if not tarif_maddeler and not durum_maddeler and not youtube_maddeler:
         return ""
-    gorulen_yol: set[str] = set()
+    gorulen: set[str] = set()
     maddeler: list[str] = []
     for kaynak in (tarif_maddeler, durum_maddeler, youtube_maddeler):
         for madde in kaynak:
             m = RE_ILK_LINK.search(madde)
             yol = nfc(m.group(1).strip()).casefold() if m else None
-            if yol and yol in gorulen_yol:
+            if yol and yol in gorulen:
                 continue
             maddeler.append(madde)
             if yol:
-                gorulen_yol.add(yol)
+                gorulen.add(yol)
 
-    baslik = f"\n[Eğitim kaynakları — {ad}]"
-    kuyruk = (
-        "\nBu alanda plan, script, strateji ya da içerik yazmadan önce ilgili kaynağı oku; "
-        "kullanıcının söylemesini bekleme. Uzun kaynakta ilgili bölümü `arastirmaci` ajanına "
-        "çıkarttır. Kaynaklar birbiriyle çelişiyorsa iki planı da sun. Kaynağın dediğine "
-        "katılmıyorsan kendi fikrini ayrı ve işaretli ver. Kurallar dosyasındaki \"önce oku\" "
-        "dosyaları da bu listenin parçasıdır. TARİFLER klasöründeki dosyalar o işin adım adım "
-        "tarifidir; ilgili olanı uygula, yorum katma."
-    )
+    kuyruk = ("\nBu alanda plan, script, strateji ya da içerik yazmadan önce ilgili kaynağı oku;"
+              " kullanıcının söylemesini bekleme. TARİFLER klasöründeki dosya o işin adım adım tarifidir.")
     gosterilecek = list(maddeler)
     while gosterilecek:
-        gövde_satirlari = "\n".join(f"- {m}" for m in gosterilecek)
+        govde = "\n".join(f"- {m}" for m in gosterilecek)
         eksik = len(maddeler) - len(gosterilecek)
-        kesme_notu = f"\n[not: {eksik} kaynak daha, Durum dosyasındaki Kaynaklar listesine bak]" if eksik else ""
-        blok = basilik_birlestir(baslik, gövde_satirlari, kesme_notu, kuyruk)
-        if len(blok) <= EGITIM_TAVAN or len(gosterilecek) == 1:
+        kesme = f"\n[not: {eksik} kaynak daha, Durum'un Kaynaklar listesine bak]" if eksik else ""
+        blok = f"\n[Kaynaklar]\n{govde}{kesme}{kuyruk}"
+        if len(blok) <= tavan or len(gosterilecek) == 1:
             return blok
         gosterilecek = gosterilecek[:-1]
     return ""
 
 
-def basilik_birlestir(baslik: str, govde_satirlari: str, kesme_notu: str, kuyruk: str) -> str:
-    return f"{baslik}\n{govde_satirlari}{kesme_notu}{kuyruk}"
-
-
-def durum_kaynak_maddeleri(durum: Path | None) -> list[str]:
-    """Durum dosyasının TAMAMINDAN `## Kaynaklar` madde satırlarını okur (kırpmadan bağımsız)."""
-    if durum is None or not durum.is_file():
-        return []
-    try:
-        _, maddeler = durum_kaynaklar_ayikla(durum.read_text(encoding="utf-8"))
-    except OSError:
-        return []
-    return maddeler
-
-
-def tetikleri_oku(yol: Path) -> list[str]:
-    """Dosyanın başındaki YAML frontmatter'dan `tetik:` listesini çıkarır.
-
-    Üç biçim: `tetik: [a, b]`, `tetik: a, b` ve alt satırlarda `- a`.
-    pyyaml yok; kanca her istemde çalıştığı için bağımlılık istemiyoruz.
-    """
-    try:
-        with yol.open("r", encoding="utf-8") as dosya:
-            bas = dosya.read(2048)
-    except OSError:
-        return []
-    satirlar = bas.splitlines()
-    if not satirlar or satirlar[0].strip() != "---":
-        return []
-    son = None
-    for i, satir in enumerate(satirlar[1:], 1):
-        if satir.strip() in ("---", "..."):
-            son = i
-            break
-    if son is None:
-        return []
-
-    ham: list[str] = []
-    i = 1
-    while i < son:
-        eslesme = re.match(r"^tetik\s*:\s*(.*)$", satirlar[i])
-        if not eslesme:
-            i += 1
-            continue
-        kalan = eslesme.group(1).strip()
-        if kalan:
-            ham += kalan.strip("[]").split(",")
-        else:
-            j = i + 1
-            while j < son:
-                alt = re.match(r"^\s*-\s+(.+?)\s*$", satirlar[j])
-                if not alt:
-                    break
-                ham.append(alt.group(1))
-                j += 1
-            i = j - 1
-        i += 1
-
-    temiz = []
-    for parca in ham:
-        parca = parca.strip().strip("\"'").strip()
-        if len(parca) >= EN_KISA_TETIK:
-            temiz.append(kucult(parca))
-    return temiz
-
-
-def alanlari_bul(vault: Path, kokler: list[str]) -> list[tuple[str, Path]]:
-    """Alan köklerinin altında en çok ALAN_DERINLIK katmanda `BEYİN/Alan.md` arar.
-
-    Alan klasörü BEYİN'in üst klasörüdür; alanın adı o klasörün adı ya da
-    Alan.md'nin frontmatter'ındaki `ad:` alanı. "BEYİN" hiçbir zaman alan adı sayılmaz.
-    """
-    bulunan: list[tuple[str, Path]] = []
-    for kok_adi in kokler:
-        kok = vault / kok_adi
-        if not kok.is_dir():
-            continue
-        temel = len(kok.parts)
-        for dizin, altlar, dosyalar in os.walk(kok):
-            simdiki = Path(dizin)
-            if len(simdiki.parts) - temel >= ALAN_DERINLIK - 1:
-                altlar[:] = []
-            else:
-                altlar[:] = [a for a in altlar if not a.startswith(".")]
-            if simdiki.name != "BEYİN":
-                continue
-            for dosya in dosyalar:
-                isim = nfc(dosya)
-                if alan_dosyasi_mi(isim):
-                    sayfa = simdiki / dosya
-                    ad_dosyadan = simdiki.parent.name
-                    bulunan.append((alan_adi_oku(sayfa, ad_dosyadan), sayfa))
-    bulunan.sort(key=lambda p: p[0])
-    return bulunan
-
-
-RE_BASLIK = re.compile(r"(?m)^##\s+(.+?)\s*$")
-
-
-def durum_kaynaklar_ayikla(durum_metni: str) -> tuple[str, list[str]]:
-    """Durum metnindeki `## Kaynaklar` bölümünü ayıklar.
-
-    Döner: (kaynaklar bölümü çıkarılmış metin, madde satırları listesi ("- " sonrası)).
-    Bölüm dosyanın sonunda olduğu için DURUM_TAVAN kırpması onu düşürüyordu; bu yüzden
-    kırpmadan önce ayrı çıkarılır, kırpma boşa gitmez.
-    """
-    eslesmeler = list(RE_BASLIK.finditer(durum_metni))
-    for i, m in enumerate(eslesmeler):
-        if m.group(1).strip().casefold() != "kaynaklar":
-            continue
-        bas = m.start()
-        bit = eslesmeler[i + 1].start() if i + 1 < len(eslesmeler) else len(durum_metni)
-        bolum = durum_metni[m.end():bit]
-        maddeler = [
-            satir.strip()[2:].strip()
-            for satir in bolum.splitlines()
-            if satir.strip().startswith("- ")
-        ]
-        kalan = (durum_metni[:bas] + durum_metni[bit:]).strip()
-        return kalan, maddeler
-    return durum_metni, []
-
-
-def govde(baslik: str, konum: str, kurallar: Path | None, durum: Path | None, durum_adi: str,
-          yok_notu: str, ne: str, bilgi: str = "", egitim: str = "") -> str:
+def govde(baslik: str, konum: str, kurallar: Path | None, durum: Path | None,
+          kararlar: Path | None, yok_notu: str, sinir: dict, egitim: str) -> str:
+    """Bir proje ya da alan bloğunu kurar: Kurallar, Şu An, son kararlar, Kaynaklar."""
     bolum = [baslik, f"Klasör: {konum}"]
     if kurallar is not None and kurallar.is_file():
         try:
-            bolum.append(
-                "\n--- Kurallar ---\n"
-                + kirp(kurallar.read_text(encoding="utf-8"), KURALLAR_TAVAN,
-                       "[not: kurallar kırpıldı, tamamı için dosyayı aç]")
-            )
+            bolum.append("\n--- Kurallar ---\n" + kirp(
+                kurallar.read_text(encoding="utf-8"), sinir["kurallar_blok_karakter"],
+                "[not: kurallar kırpıldı, tamamı için dosyayı aç]"))
         except OSError:
             pass
     else:
@@ -436,18 +429,98 @@ def govde(baslik: str, konum: str, kurallar: Path | None, durum: Path | None, du
     if durum is not None and durum.is_file():
         try:
             durum_metni, _ = durum_kaynaklar_ayikla(durum.read_text(encoding="utf-8"))
-            bolum.append(
-                "\n--- " + durum_adi + f" ({ne} şu anki hâli) ---\n"
-                + kirp(durum_metni, DURUM_TAVAN,
-                       "[not: durum kırpıldı, tamamı için dosyayı aç]")
-            )
+            bolum.append("\n--- Şu An ---\n" + su_an_ayikla(durum_metni, sinir["su_an_karakter"]))
         except OSError:
             pass
+    kararlar_satiri = son_kararlar(kararlar, KARARLAR_EN_FAZLA)
+    if kararlar_satiri:
+        bolum.append("\n" + kararlar_satiri + " (gerekçe için Kararlar.md'yi aç)")
     if egitim:
         bolum.append(egitim)
-    if bilgi:
-        bolum.append(bilgi)
     return "\n".join(bolum)
+
+
+def tetik_ipucu(vault: Path, kelimeler: list[str], hariç: set[str], en_fazla: int) -> str:
+    """`.claude/tetik-indeks.json` ile istem kelimelerini eşleştirip tek satır ipucu basar.
+
+    Puanlama kaynağa göre ağırlıklıdır: "Tetik:" satırı ya da Alan.md tetik listesi 3 puan,
+    dosya adı kelimesi 2 puan, `## ` başlık kelimesi 1 puan. Yalnız toplam puanı IPUCU_ESIK'i
+    (3) geçen notlar basılır. Kök eşleşmesi için normal kelime en az altı harf, tetik
+    listesinden gelen kelime en az dört harf olmalı. İstem üç anlamlı kelimeden kısaysa ya da
+    yalnızca durak kelimelerden oluşuyorsa hiçbir şey basılmaz. Zaten bu istemde basılan proje
+    ve alan dosyaları listeye girmez.
+    """
+    try:
+        veri = json.loads((vault / ".claude" / "tetik-indeks.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return ""
+    notlar = veri.get("notlar") if isinstance(veri, dict) else None
+    if not isinstance(notlar, list) or not notlar:
+        return ""
+
+    # İstemin kendisi anlamlı mı: durak kelimeler çıkarılınca en az üç kelime kalmalı.
+    anlamli_kelimeler = [k for k in kelimeler if k not in IPUCU_DURAK]
+    if len(anlamli_kelimeler) < IPUCU_EN_AZ_KELIME:
+        return ""
+
+    # İki eşik: normal kök için altı harf, tetik listesinden gelen kök için dört harf yeter.
+    kok_genis = [k for k in anlamli_kelimeler if _ipucu_kelime_gecerli(k, EN_KISA_IPUCU_TETIK)]
+    kok_dar = [k for k in anlamli_kelimeler if _ipucu_kelime_gecerli(k, EN_KISA_IPUCU)]
+    if not kok_genis:
+        return ""
+
+    puanlar: list[tuple[int, str, str]] = []
+    for kayit in notlar:
+        if not isinstance(kayit, dict):
+            continue
+        yol = kayit.get("yol")
+        ad = kayit.get("ad")
+        if not yol or not ad:
+            continue
+        if yol in hariç:
+            continue
+        tetikler = kayit.get("tetik")
+        adtetik = kayit.get("adtetik")
+        # Geri uyumluluk: "adtetik" yoksa (eski indeks) ad kelimeleri gelmiyor demektir,
+        # eski "zayif" alanı başlık kelimeleri olarak kullanılır.
+        baslik = kayit.get("baslik", kayit.get("zayif"))
+        puan = 0
+        katmanlar = (
+            (tetikler if isinstance(tetikler, list) else [], IPUCU_PUAN_TETIK, kok_dar),
+            (adtetik if isinstance(adtetik, list) else [], IPUCU_PUAN_AD, kok_dar),
+            (baslik if isinstance(baslik, list) else [], IPUCU_PUAN_BASLIK, kok_dar),
+        )
+        for kume, agirlik, havuz in katmanlar:
+            for tetik in kume:
+                if not isinstance(tetik, str):
+                    continue
+                # Tetik kümesindeki kelime kısa olabilir (ör. "sms", 4 harf sınırı tetik
+                # listesi kelimeleri içindir); istem tarafında yine de en az dört harf ister.
+                if len(tetik) < EN_KISA_IPUCU_TETIK:
+                    continue
+                if any(k.startswith(tetik) or tetik.startswith(k) for k in havuz):
+                    puan += agirlik
+        if puan >= IPUCU_ESIK:
+            puanlar.append((puan, str(ad), str(yol)))
+    if not puanlar:
+        return ""
+    puanlar.sort(key=lambda p: (-p[0], p[1]))
+    # Satır tavanı parça parça harcanır; ortadan kesilen bir yol tıklanamaz hale gelir,
+    # bu yüzden sığmayan kayıt hiç yazılmaz, kesilmez.
+    parcalar: list[str] = []
+    uzunluk = len("İlgili notlar: ")
+    for _, ad, yol in puanlar[:en_fazla]:
+        if len(ad) > 60:
+            ad = ad[:57].rstrip() + "..."
+        parca = f"{ad} ({yol})"
+        ek = len(parca) + (2 if parcalar else 0)
+        if uzunluk + ek > IPUCU_TAVAN:
+            break
+        parcalar.append(parca)
+        uzunluk += ek
+    if not parcalar:
+        return ""
+    return "İlgili notlar: " + ", ".join(parcalar)
 
 
 def main() -> int:
@@ -464,15 +537,14 @@ def main() -> int:
     oturum = girdi.get("session_id")
     if not isinstance(istem, str) or not istem.strip():
         return 0
-    # Yalnız kullanıcının kendi yazdığı mesaj sayılır. Arka plan ajan bildirimleri, sistem
-    # hatırlatmaları ve kanca çıktıları da bu olaydan geçer; içlerinde geçen proje adı
-    # yönerge yüklememeli (2026-09-06: bir ajan raporunda proje adı geçince yüklendi).
+    # Yalnız kullanıcının kendi yazdığı mesaj sayılır. Arka plan ajan bildirimleri ve
+    # sistem hatırlatmaları da bu olaydan geçer; içlerinde geçen proje adı yüklememeli.
     bas = istem.lstrip()[:200]
     if bas.startswith(("<system-reminder", "<task-notification", "[SYSTEM NOTIFICATION")) \
             or "<task-notification>" in istem or "[SYSTEM NOTIFICATION" in istem:
         return 0
 
-    ayar = {}
+    sinir = _sinirlar_oku(vault)
     try:
         ayar = json.loads((vault / ".claude" / "beyin.json").read_text(encoding="utf-8"))
     except (OSError, ValueError):
@@ -480,38 +552,33 @@ def main() -> int:
     if not isinstance(ayar, dict):
         ayar = {}
 
-    # ---- projeler ----
-    adlar: list[str] = []
+    kelimeler = kelime_kokleri(istem)
+    if not kelimeler:
+        return 0
+
     projeler_kok = None
     kok = ayar.get("projeler")
     if isinstance(kok, str) and kok:
         aday = Path(kok).expanduser()
         if aday.is_dir():
             projeler_kok = aday
-    # Proje adları YALNIZ vault'un PROJELER klasöründen okunur; ayrı kayıt yoktur
-    # (anayasa, "Projelerde çalışma düzeni"). Kod kökündeki klasörler ad kaynağı
-    # değildir: orada arşiv, deneme ve taşınmış proje kalıntıları da duruyor ve
-    # bunlar sohbette geçince boş yönerge enjekte ediyordu. Kod kökü yalnız
-    # projenin kod konumunu yazmak için kullanılır (aşağıda `konum`).
-    # Bir klasörü proje yapan şey Durum'udur: `Durum.md` yoksa proje değildir.
-    vault_projeler = vault / "PROJELER"
-    adlar_kume = set()
-    if vault_projeler.is_dir():
-        for d in vault_projeler.iterdir():
-            if not d.is_dir() or d.name.startswith("."):
-                continue
-            ad_nfc = nfc(d.name)
-            if proje_cekirdek(d, "Durum") is not None:
-                adlar_kume.add(ad_nfc)
-    adlar = sorted(adlar_kume)
 
-    # ---- alanlar ----
+    # Proje adları yalnız vault'un PROJELER klasöründen okunur; bir klasörü proje yapan
+    # şey Durum.md'sidir.
+    vault_projeler = vault / "PROJELER"
+    adlar: list[str] = []
+    if vault_projeler.is_dir():
+        adlar = sorted({nfc(d.name) for d in vault_projeler.iterdir()
+                        if d.is_dir() and not d.name.startswith(".")
+                        and proje_cekirdek(d, "Durum") is not None})
+
     kokler = ayar.get("alan_kokleri")
     if not isinstance(kokler, list) or not all(isinstance(k, str) for k in kokler):
         kokler = ALAN_KOKLERI
     alanlar = alanlari_bul(vault, kokler)
 
-    # Aynı oturumda aynı proje ya da alan bir kez enjekte edilir.
+    # Aynı oturumda aynı proje ya da alan bir kez enjekte edilir. İz dosyası oturum
+    # kimliğinin sha256'sıdır; pre-compact.sh bağlam özetlenince onu siler.
     gorulen: set[str] = set()
     izlek = None
     if isinstance(oturum, str) and oturum and durum_dizin.is_dir():
@@ -523,104 +590,170 @@ def main() -> int:
             except OSError:
                 gorulen = set()
 
-    # Aynı ad hem proje hem alan olarak görünüyorsa alan kazanır: alan sayfası bilinçli bir
-    # beyan, koddaki klasör yalnızca bir dizin. Proje alandan taşındığında kod klasörü yerinde
-    # kalıyor ve iki kayıt birden enjekte oluyordu (2026-09-06).
     alan_adlari = {ad for ad, _ in alanlar}
 
-    eslesen_proje = []
+    # --- eşleşme: kelime bazlı, ad eşleşmesi ile tetik eşleşmesi ayrı tutulur -----------
+    proje_eslesme: list[tuple[str, bool]] = []   # (ad, ad_ile_eslesti)
     for ad in adlar:
-        if ad in gorulen or ad in alan_adlari:
+        if ad in alan_adlari:
             continue
-        kalip = re.escape(ad).replace(r"\ ", r"[\s-]?")
-        if re.search(rf"(?<![\wçğıöşüÇĞİÖŞÜ]){kalip}(?![\wçğıöşüÇĞİÖŞÜ])", istem, re.IGNORECASE):
-            eslesen_proje.append(ad)
-    eslesen_proje = eslesen_proje[:EN_FAZLA_PROJE]
+        ad_ile = tetik_eslesti(ad, kelimeler, EN_KISA_TETIK)
+        tetikle = False
+        if not ad_ile:
+            proje_klasor = vault_projeler / ad
+            ek = govde_tetikleri(proje_cekirdek(proje_klasor, "Proje"))
+            tetikle = any(tetik_eslesti(t, kelimeler, EN_KISA_TETIK) for t in ek)
+        if ad_ile or tetikle:
+            proje_eslesme.append((ad, ad_ile))
 
-    istem_kucuk = kucult(istem)
-    eslesen_alan = []
+    alan_eslesme: list[tuple[str, Path, bool]] = []
     for ad, sayfa in alanlar:
-        if f"alan:{ad}" in gorulen:
-            continue
-        if kucult(ad) in istem_kucuk or any(t in istem_kucuk for t in tetikleri_oku(sayfa)):
-            eslesen_alan.append((ad, sayfa))
+        ad_ile = tetik_eslesti(ad, kelimeler, EN_KISA_TETIK)
+        tetikle = False
+        if not ad_ile:
+            tetikler = tetikleri_oku(sayfa) + govde_tetikleri(sayfa)
+            tetikle = any(tetik_eslesti(t, kelimeler, EN_KISA_TETIK) for t in tetikler)
+        if ad_ile or tetikle:
+            alan_eslesme.append((ad, sayfa, ad_ile))
+
+    # Bir ad TAM olarak eşleştiyse, yalnız o adın içindeki bir kelimeyle eşleşen diğerleri
+    # düşer. "görsel üretim" cümlesi GÖRSEL ÜRETİM alanını tam adıyla uyandırıyor;
+    # OPERASYON'un "üretim" tetiği aynı cümlede artık tetiklenmez.
+    tam_adlar = [ad for ad, ad_ile in proje_eslesme if ad_ile] + \
+                [ad for ad, _, ad_ile in alan_eslesme if ad_ile]
+    if tam_adlar:
+        tam_kelimeler: set[str] = set()
+        for ad in tam_adlar:
+            tam_kelimeler.update(kelime_kokleri(ad))
+
+        def yalniz_ad_icinden_mi(ad: str, sayfa: Path | None) -> bool:
+            """Bu kayıt yalnız tam eşleşen adın içinde geçen kelimelerle mi tetiklendi."""
+            tetikler = list(kelime_kokleri(ad))
+            if sayfa is not None:
+                for t in tetikleri_oku(sayfa) + govde_tetikleri(sayfa):
+                    tetikler += kelime_kokleri(t)
+            vuran = [t for t in tetikler
+                     if len(t) >= EN_KISA_TETIK and any(k.startswith(t) for k in kelimeler)]
+            return bool(vuran) and all(t in tam_kelimeler for t in vuran)
+
+        proje_eslesme = [(ad, a) for ad, a in proje_eslesme
+                         if a or not yalniz_ad_icinden_mi(ad, proje_cekirdek(vault_projeler / ad, "Proje"))]
+        alan_eslesme = [(ad, s, a) for ad, s, a in alan_eslesme
+                        if a or not yalniz_ad_icinden_mi(ad, s)]
+
+    # Tam ad eşleşmeleri öne alınır; iz dosyasında görülmüş olanlar düşer.
+    proje_eslesme.sort(key=lambda p: (not p[1], p[0]))
+    alan_eslesme.sort(key=lambda p: (not p[2], p[0]))
+    eslesen_proje = [ad for ad, _ in proje_eslesme if ad not in gorulen][:EN_FAZLA_PROJE]
+    eslesen_alan = [(ad, s) for ad, s, _ in alan_eslesme if f"alan:{ad}" not in gorulen]
     eslesen_alan = eslesen_alan[: max(0, EN_FAZLA - len(eslesen_proje))]
 
-    if not eslesen_proje and not eslesen_alan:
+    # --- bütçe: toplam kanca_istem_karakter'i asla aşma --------------------------------
+    toplam_tavan = sinir["kanca_istem_karakter"]
+    eslesme_sayisi = len(eslesen_proje) + len(eslesen_alan)
+    if eslesme_sayisi == 0:
+        # Blok yok ama ipucu satırı her istemde çalışır; "bir kez" izine bağlı değildir.
+        ipucu = tetik_ipucu(vault, kelimeler, set(), sinir["ipucu_en_fazla"])
+        if ipucu:
+            print(ipucu)
         return 0
 
-    kayitlar = indeks_satirlari(vault)
+    # İpucu satırı için pay ayrılır, kalan bütçe eşleşmeler arasında bölünür.
+    kalan_butce = toplam_tavan - IPUCU_TAVAN - 120
+    blok_butce = max(1000, kalan_butce // eslesme_sayisi)
 
-    parcalar = []
-    verilen = []
-    toplam = 0
+    parcalar: list[str] = []
+    verilen: list[str] = []
+    basilan_yollar: set[str] = set()
+    kirpildi = False
+    kullanilan = 0
+
+    def blok_ekle(metin: str, iz: str) -> None:
+        nonlocal kullanilan, kirpildi
+        if len(metin) > blok_butce:
+            metin = kirp(metin, blok_butce, "[not: blok bütçeye sığmadığı için kırpıldı]")
+            kirpildi = True
+        if kullanilan + len(metin) > kalan_butce:
+            kirpildi = True
+            return
+        parcalar.append(metin)
+        verilen.append(iz)
+        kullanilan += len(metin)
+
     for ad in eslesen_proje:
         konum = str(projeler_kok / ad) if projeler_kok is not None else "kod klasörü yok"
-        proje_klasor = vault / "PROJELER" / ad
+        proje_klasor = vault_projeler / ad
         durum_dosyasi = proje_cekirdek(proje_klasor, "Durum")
-        # Proje klasörünün İçindekiler tablosunda alan sütunuyla eşleşen bir yolu yoktur
-        # (o sütun yalnız BEYİN/Alan.md hedeflerini gösterir); YouTube tarafı doğal olarak boş.
-        # Proje için TARİFLER doğrudan proje klasöründedir (BEYİN alt klasörü yok).
+        kaynak_maddeler: list[str] = []
+        if durum_dosyasi is not None:
+            try:
+                _, kaynak_maddeler = durum_kaynaklar_ayikla(durum_dosyasi.read_text(encoding="utf-8"))
+            except OSError:
+                kaynak_maddeler = []
         egitim = egitim_kaynaklari_blogu(
-            ad, tarifler_maddeleri(vault, proje_klasor / "TARİFLER"),
-            durum_kaynak_maddeleri(durum_dosyasi),
+            tarifler_maddeleri(vault, proje_klasor / "TARİFLER"),
+            kaynak_maddeler,
             youtube_alan_maddeleri(vault, f"PROJELER/{ad}"),
+            min(EGITIM_TAVAN, sinir["kaynaklar_blok_karakter"]),
         )
-        metin = govde(
+        for yol in (proje_cekirdek(proje_klasor, "Kurallar"), durum_dosyasi):
+            if yol is not None:
+                basilan_yollar.add(str(yol.relative_to(vault)))
+        blok_ekle(govde(
             f"[Proje: {ad}]", konum,
-            proje_cekirdek(proje_klasor, "Kurallar"),
-            durum_dosyasi,
-            "Durum.md",
+            proje_cekirdek(proje_klasor, "Kurallar"), durum_dosyasi,
+            proje_cekirdek(proje_klasor, "Kararlar"),
             "Bu projenin özel kuralları yok; CLAUDE.md'deki ortak çalışma düzeni geçerli.",
-            "projenin",
-            bilgi_blogu(kayitlar, bilgi_anahtarlari(ad, [])),
-            egitim,
-        )
-        if parcalar and toplam + len(metin) > TOPLAM_TAVAN:
-            break
-        parcalar.append(metin)
-        verilen.append(ad)
-        toplam += len(metin)
+            sinir, egitim,
+        ), ad)
+
     for ad, sayfa in eslesen_alan:
-        # Alan adı BEYİN'in üst klasöründen gelir; sayfa BEYİN/Alan.md'dir.
         beyin_klasor = sayfa.parent
         alan_klasor = beyin_klasor.parent
         durum_dosyasi = alan_cekirdek(beyin_klasor, "Durum")
-        alan_klasor_rel = str(alan_klasor.relative_to(vault))
+        kaynak_maddeler = []
+        if durum_dosyasi is not None:
+            try:
+                _, kaynak_maddeler = durum_kaynaklar_ayikla(durum_dosyasi.read_text(encoding="utf-8"))
+            except OSError:
+                kaynak_maddeler = []
         egitim = egitim_kaynaklari_blogu(
-            ad, tarifler_maddeleri(vault, beyin_klasor / "TARİFLER"),
-            durum_kaynak_maddeleri(durum_dosyasi),
-            youtube_alan_maddeleri(vault, alan_klasor_rel),
+            tarifler_maddeleri(vault, beyin_klasor / "TARİFLER"),
+            kaynak_maddeler,
+            youtube_alan_maddeleri(vault, str(alan_klasor.relative_to(vault))),
+            min(EGITIM_TAVAN, sinir["kaynaklar_blok_karakter"]),
         )
-        metin = govde(
+        for yol in (alan_cekirdek(beyin_klasor, "Kurallar"), durum_dosyasi, sayfa):
+            if yol is not None:
+                basilan_yollar.add(str(yol.relative_to(vault)))
+        blok_ekle(govde(
             f"[Alan: {ad}]", str(alan_klasor),
-            alan_cekirdek(beyin_klasor, "Kurallar"),
-            durum_dosyasi,
-            "BEYİN/Durum.md",
+            alan_cekirdek(beyin_klasor, "Kurallar"), durum_dosyasi,
+            alan_cekirdek(beyin_klasor, "Kararlar"),
             "Bu alanın özel kuralları yok; CLAUDE.md'deki ortak çalışma düzeni geçerli.",
-            "alanın",
-            bilgi_blogu(kayitlar, bilgi_anahtarlari(ad, tetikleri_oku(sayfa))),
-            egitim,
-        )
-        if parcalar and toplam + len(metin) > TOPLAM_TAVAN:
-            break
-        parcalar.append(metin)
-        verilen.append(f"alan:{ad}")
-        toplam += len(metin)
+            sinir, egitim,
+        ), f"alan:{ad}")
 
     if not parcalar:
         return 0
 
+    if kirpildi:
+        parcalar.append("[not: yer kalmadığı için bir blok kırpıldı; ilgili dosyayı aç]")
+
+    ipucu = tetik_ipucu(vault, kelimeler, basilan_yollar, sinir["ipucu_en_fazla"])
+    if ipucu:
+        parcalar.append(ipucu)
+
     if izlek is not None:
         try:
-            izlek.write_text(
-                "\n".join(sorted(gorulen | set(verilen))).strip(),
-                encoding="utf-8",
-            )
+            izlek.write_text("\n".join(sorted(gorulen | set(verilen))).strip(), encoding="utf-8")
         except OSError:
             pass
 
-    print("\n\n".join(parcalar))
+    cikti = "\n\n".join(parcalar)
+    if len(cikti) > toplam_tavan:
+        cikti = cikti[: toplam_tavan - 60].rstrip() + "\n[not: çıktı tavanda kırpıldı]"
+    print(cikti)
     return 0
 
 

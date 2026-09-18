@@ -13,5 +13,21 @@
   "youtube": {
     "liste": "",
     "baglam": "<kullanıcı kim, ne iş yapıyor, şu anki önceliği ne; YouTube not yazarına verilir>"
+  },
+  "sinirlar": {
+    "kurallar_madde": 30,
+    "kurallar_karakter": 8000,
+    "acik_konular_madde": 20,
+    "acik_konular_karakter": 6000,
+    "son_oturum_karakter": 5000,
+    "su_an_karakter": 3000,
+    "kurallar_blok_karakter": 3000,
+    "kaynaklar_blok_karakter": 1500,
+    "kanca_acilis_karakter": 6000,
+    "kanca_istem_karakter": 8500,
+    "kararlar_bolme_karakter": 60000,
+    "ipucu_en_fazla": 3,
+    "bekleyenler_en_fazla": 3,
+    "baglanmamis_en_fazla": 3
   }
 }

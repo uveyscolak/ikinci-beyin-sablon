@@ -1,12 +1,16 @@
 ---
 name: kaynak
-description: Dışarıdan bir kaynağı (web linki, PDF, YouTube veya sosyal medya videosu, yerel video/ses/metin dosyası) okuyup özetini günlüğe düşürür; akşam derleyicisi onu kavram makalesine çevirir. "kaynak ekle", "şu linki beyne al", "bu PDF'i oku ve kaydet", "bu videoyu özetle ve kaydet", "kaynak: <link>" dendiğinde kullan.
+description: Dışarıdan bir kaynağı (web linki, PDF, YouTube veya sosyal medya videosu, yerel video/ses/metin dosyası) okuyup özetini günlüğe düşürür, işe dönen çıkarımı Kararlar veya TARİFLER dosyasına yazar. "kaynak ekle", "şu linki beyne al", "bu PDF'i oku ve kaydet", "bu videoyu özetle ve kaydet", "kaynak: <link>" dendiğinde kullan.
 ---
 # Kaynak
 
-Dışarıdan gelen bilgi beyne iki adımda girer: özet bugün `GÜNLÜK/` dosyasına düşer, akşam
-derleyicisi ondan kavram makalesi çıkarır ve ertesi sabah `BİLGİ/index.md` içinde görünür.
-Ham metin vault'a girmez; kaynağın kendisi linkle ya da dosya yoluyla işaret edilir.
+Dışarıdan gelen bilgi beyne iki adımda girer: özet bugün `GÜNLÜK/` dosyasına düşer, kaynaktan
+çıkan sonuç bir işi besliyorsa aynı turda ilgili `Kararlar.md` dosyasına ya da alanın
+`BEYİN/TARİFLER/` klasörüne yazılır. Ham metin vault'a girmez; kaynağın kendisi linkle ya da
+dosya yoluyla işaret edilir.
+
+Damıtılmış hal ayrı bir katmanda yaşamaz. Bir kaynak yalnız günlüğe düşüp hiçbir karara ya da
+tarife dokunmuyorsa orada kalır; aranınca `hatirla` skill'i günlükten bulur.
 
 ## 1. Kaynağı tanı
 
@@ -65,22 +69,25 @@ Kurallar:
 - Rakam ve alıntı birebir; yuvarlama, "yaklaşık" yok. Kaynakta yoksa bölümü boş bırakma, sil.
 - `## İlgili` altındaki her link gerçek bir vault notu olsun; yoksa bölümü sil. Uydurma link
   sağlık taramasında kırık çıkar.
-- Aynı kaynak daha önce alınmışsa (günlükte veya `BİLGİ/index.md` içinde link/başlık grep'i)
-  yeniden yazma; kullanıcıya "bunu şu tarihte almışız, makalesi şu" de ve dur.
+- Aynı kaynak daha önce alınmışsa (günlükte link ya da başlık grep'i, ya da
+  `.claude/tetik-indeks.json` içinde eşleşme) yeniden yazma; kullanıcıya "bunu şu tarihte
+  almışız" de ve dur.
 - Ham metin, transkript, PDF kopyası vault'a girmez. Kullanıcı saklamak isterse dosya
   `ASSETS/` dışında, vault dışında bir yere konur; günlükteki blok yolunu gösterir.
 
 ## 4. Proje veya alana bağla
 
-Kullanıcı bir proje ya da alan adı verdiyse o Durum dosyasının sonuna tek satır düş:
-`- YYYY-AA-GG kaynak: <başlık> — özet [[GÜNLÜK/YYYY-AA-GG]]`. Söylemediyse dokunma.
-Kaynak bir kararı değiştiriyorsa karar Kararlar dosyasına kullanıcı onayıyla girer, kendiliğinden değil.
+Kullanıcı bir proje ya da alan adı verdiyse o Durum dosyasının `## Kaynaklar` listesine tek satır
+düş: `- <başlık> — [[GÜNLÜK/YYYY-AA-GG]]`. Söylemediyse dokunma.
+
+Kaynak bir kararı değiştiriyorsa karar Kararlar dosyasına kullanıcı onayıyla girer, kendiliğinden
+değil. Kaynaktan çıkan ve işte tekrar tekrar kullanılacak bir reçete varsa o alanın
+`BEYİN/TARİFLER/` klasörüne `<Konu> Tarifi.md` olarak yazılır; bu da onayla olur.
 
 ## 5. Kullanıcıya söyle
 
-Üç beş cümle: kaynak ne diyor, bize ne ifade ediyor, nereye yazdın. "Akşam derleyicisi kavram
-makalesine çevirir, yarın sabah indekste görünür" bilgisini ilk kullanımlarda ekle. Özetin
-tamamını sohbete yapıştırma; isterse günlükten okur.
+Üç beş cümle: kaynak ne diyor, bize ne ifade ediyor, nereye yazdın. Özetin tamamını sohbete
+yapıştırma; isterse günlükten okur.
 
 ## Bulamazsan
 

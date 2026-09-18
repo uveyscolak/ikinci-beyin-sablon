@@ -5,10 +5,23 @@
 BEYIN_HOOK_DIR=$(CDPATH= cd "$(dirname "$0")" 2>/dev/null && pwd)
 . "$BEYIN_HOOK_DIR/lib.sh" 2>/dev/null || exit 0
 
+# Kancanın stdin JSON'u: source alanı (startup, resume, clear, compact, fork) ve session_id.
+# Dosyaya alınır, hem oturum anahtarı hem session-start.py bu dosyadan okur; stdin bir kez okunur.
+BEYIN_GIRDI="$BEYIN_STATE_DIR/acilis-$$.json"
+umask 077
+cat > "$BEYIN_GIRDI" 2>/dev/null || BEYIN_GIRDI=""
+
+# Disk bağlı değilse sessizce çıkma: hafıza yüklenmediği görünmeden kalıyordu.
+if [ ! -d "$BEYIN_PROJECT_DIR/HAFIZA" ]; then
+  beyin_emit SessionStart 'Beyin uyarısi: vault bulunamadi (disk bagli degil olabilir). Hafiza yuklenmedi, oturum sonu kaydedilmeyecek.'
+  rm -f "$BEYIN_GIRDI" 2>/dev/null || :
+  exit 0
+fi
+
 mkdir -p "$BEYIN_STATE_DIR" 2>/dev/null || :
 beyin_cleanup_session_state
 
-BEYIN_SESSION_KEY=$(beyin_session_key 2>/dev/null || :)
+BEYIN_SESSION_KEY=$(beyin_session_key < "$BEYIN_GIRDI" 2>/dev/null || :)
 if [ -n "$BEYIN_SESSION_KEY" ]; then
   date '+%s' > "$BEYIN_STATE_DIR/session_start_time.$BEYIN_SESSION_KEY" 2>/dev/null || :
   printf '%s\n' 0 > "$BEYIN_STATE_DIR/prompt_count.$BEYIN_SESSION_KEY" 2>/dev/null || :
@@ -16,12 +29,15 @@ fi
 
 if command -v python3 >/dev/null 2>&1; then
   # Hızlı sağlık kontrolü (yarım saniye): sonuç .state/saglik.json'a, sorun varsa bağlama düşer.
-  python3 "$BEYIN_PROJECT_DIR/.claude/scripts/saglik.py" --yaz >/dev/null 2>&1 || :
-  python3 "$BEYIN_HOOK_DIR/session-start.py" "$BEYIN_PROJECT_DIR" 2>/dev/null || :
+  python3 "$BEYIN_PROJECT_DIR/.claude/scripts/saglik.py" --yaz --sayim >/dev/null 2>&1 || :
+  python3 "$BEYIN_HOOK_DIR/session-start.py" "$BEYIN_PROJECT_DIR" \
+    --girdi "$BEYIN_GIRDI" 2>/dev/null || :
 else
   beyin_mark_python_missing
   beyin_emit SessionStart 'Beyin uyarısı: python3 bulunamadı, hafıza enjekte edilemedi. beyin doktor çalıştır.'
 fi
+
+rm -f "$BEYIN_GIRDI" 2>/dev/null || :
 
 # Gecikmiş derleme (18:00 öncesi kapanan günler) ve kaçan oturum özetleri, ayrık süreçte.
 if command -v python3 >/dev/null 2>&1; then

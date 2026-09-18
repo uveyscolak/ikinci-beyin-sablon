@@ -13,6 +13,17 @@ if ! cat > "$BEYIN_HOOK_INPUT" 2>/dev/null; then
 fi
 
 if [ -n "$BEYIN_HOOK_INPUT" ]; then
+  # Proje ve alan blokları oturumda bir kez enjekte ediliyor, izi oturum kimliğinin
+  # sha256'sına bağlı bir dosyada duruyor. Bağlam özetlenince kimlik değişmiyor, iz
+  # kalıyor ve blok o oturumda bir daha hiç gelmiyordu. İz burada silinir; konu tekrar
+  # geçince blok yeniden gelir. Hash hesabı proje-yonerge.py ile birebir aynıdır.
+  if command -v python3 >/dev/null 2>&1; then
+    BEYIN_SESSION_KEY=$(beyin_session_key < "$BEYIN_HOOK_INPUT" 2>/dev/null || :)
+    if [ -n "$BEYIN_SESSION_KEY" ]; then
+      rm -f "$BEYIN_STATE_DIR/yonerge-verilen.$BEYIN_SESSION_KEY" 2>/dev/null || :
+    fi
+  fi
+
   if command -v python3 >/dev/null 2>&1; then
     nohup python3 "$BEYIN_PROJECT_DIR/.claude/scripts/flush.py" \
       --hook-input "$BEYIN_HOOK_INPUT" --reason precompact >/dev/null 2>&1 &

@@ -6,7 +6,57 @@ description: Beynin sağlık kontrolü. Kancalar, script'ler, hafıza dosyaları
 # Beyin Doktoru
 
 Bu skill beynin mekanik katmanını denetler. Amaç sessiz arızayı görünür yapmak: kanca ateşlemiyor
-mu, özet düşmüyor mu, Son Oturum bayat mı, derleyici takılı mı, linkler kopuk mu, yedek var mı.
+mu, özet düşmüyor mu, Son Oturum bayat mı, gece bakımı takılı mı, linkler kopuk mu.
+
+## Mekanizma haritası — makine neyi kendi yapar
+
+Hafıza bir disiplin değil, mekanizma. Neyin ne zaman çalıştığı burada; bir şey beklendiği gibi
+olmuyorsa arıza aşağıdaki halkalardan birindedir.
+
+**Oturum açılınca.** `CLAUDE.md` ve içindeki üç dosya bağı (Kurallar, Açık Konular, Son Oturum)
+Claude Code'un kendi dosya mekanizmasıyla tam yüklenir; bağlam özetlense bile diskten yeniden
+okunur. Açılış kancası (`session-start.py`) bunun üstüne yalnız o an üretilen bilgiyi basar ve
+çıktısı en fazla 6.000 karakterdir: sağlık kontrolü, sınırı aşan dosyalar için sayım satırı
+("Kurallar 34/30" gibi), push bekleyen depolar, `HAFIZA/Bekleyenler.md` içinden en fazla üç madde,
+`HAFIZA/Hatırlatmalar.md` içinden günü gelen satırlar, token raporundan tek satır, hiçbir Durum
+dosyasının Kaynaklar listesinde geçmeyen en fazla üç iş dosyası, gece bakımı düştüyse tek satır ve
+bugünün günlük kuyruğu. Sınır 6.000'dir çünkü Claude Code 10.000 karakteri aşan kanca çıktısını
+dosyaya atıp yalnız ilk 2.000 karakterini gösterir.
+
+**Her istemde.** `proje-yonerge.py` çalışır. Bir proje adı, bir `Tetik:` satırındaki kelime ya da
+bir alanın tetik kelimesi geçerse o kaydın bloğu enjekte edilir; blok en fazla 8.500 karakterdir
+ve Kurallar dosyasını, Durum'un `## Şu An` bölümünü, `## Kaynaklar` listesindeki dosya adlarını,
+Kararlar'ın son üç başlığını ve tarifler listesini taşır. Aynı kanca `.claude/tetik-indeks.json`
+dosyasına da bakar ve eşleşme varsa tek satır ipucu basar ("İlgili notlar: A, B, C"); dosya
+yüklenmez, yalnız ad gelir.
+
+**Bağlam özetlenmeden önce.** `pre-compact` kancası proje izlek dosyasını siler; konu tekrar
+geçince blok yeniden gelir. Bu silme olmazsa bir proje bloğu oturumda bir kez gelir ve bir daha
+hiç gelmez.
+
+**Oturum kapanınca.** Kök `index.md` ve `.claude/tetik-indeks.json` yeniden üretilir, konuşmanın
+özeti `GÜNLÜK/YYYY-AA-GG.md` dosyasına yazılır, `HAFIZA/Son Oturum.md` makine tarafından yenilenir
+ve vault'un tamamı commit'lenip push'lanır. Kullanıcı oturum içinde Son Oturum dosyasını elle
+yazdıysa makine o oturum için dokunmaz.
+
+**Her gece saat dörtte.** `gece-bakim.py` model çağırmadan dört iş yapar: madde ve boyut sayımı,
+kırık bağlantı ile bağlanmamış iş dosyası taraması, tetik indeksinin üretimi, token raporunun
+`HAFIZA/Token Raporu.md` dosyasına yazımı. Sonra tek bir Sonnet çağrısı yapılır; girdisi dar
+(Kurallar, Açık Konular, son günün günlüğü), çıktısı yalnız öneridir ve yalnız
+`HAFIZA/Bekleyenler.md` dosyasına yazılır. İçeriğe dokunmaz, onay kullanıcıdan gelir. Haiku hiçbir
+yerde kullanılmaz. Çağrı haftalık kullanım sınırına takılırsa atlanır, atlandığı kaydedilir ve
+bir sonraki açılışta tek satırla söylenir.
+
+**Git kaydı öncesi.** `.git/hooks/pre-commit` sır taraması yapar; bu Claude Code kanca zincirinden
+bağımsız ikinci katmandır, yazma yolu ne olursa olsun kaydedilen metni tarar.
+
+**Denetleyiciler.** `cevap-denetle.py` cevap bitmeden son mesajı tarar (dosya linki biçimi),
+`dosya-denetle.py` vault'a yazılan `.md` dosyanın üst bilgi bloğuyla başlamadığına bakar.
+İkincisi yalnız Write ve Edit araçlarını görür; Bash ile yazılan dosya kapsam dışıdır.
+
+**Kancalar global kuruludur:** hangi klasörde çalışılırsa çalışılsın hafıza her zaman
+`<VAULT>` içine yazılır. Disk bağlı değilse kancalar sessizce çıkmaz, görünür tek
+satırlık uyarı bırakır.
 
 ## Nasıl çalışırsın
 
@@ -83,44 +133,37 @@ f=$(ls -t GÜNLÜK/*.md | head -1); m=$(stat -f %m "$f"); n=$(date +%s); echo "G
 🟢 48 saatten yeni. 🟡 48 ile 96 saat. 🔴 96 saatten eski. Bir günde aynı içerikli iki üç giriş varsa
 imza mekanizması çalışmıyor demektir.
 
-### 7. Derleme durumu ve son hata
+### 7. Gece bakımı durumu ve son hata
 
 ```bash
-python3 -c "import json;d=json.load(open('.claude/scripts/.state/compile-state.json'));print('last_run:',d.get('last_run'));print('last_status:',d.get('last_status'));print('ingested:',len(d.get('ingested',{})));print('son 5 kosu:',[r['status'] for r in d.get('runs',[])[-5:]])" 2>/dev/null || echo "compile: state yok"; [ -f .claude/scripts/.state/health.json ] && python3 -c "import json;d=json.load(open('.claude/scripts/.state/health.json'));print('health:',d.get('component'),d.get('error','')[:200])" || echo "health: kayit yok"
+python3 -c "import json;d=json.load(open('.claude/scripts/.state/gece-bakim-state.json'));print('last_run:',d.get('last_run'));print('last_status:',d.get('last_status'));print('ingested:',len(d.get('ingested',{})));print('son 5 kosu:',[r['status'] for r in d.get('runs',[])[-5:]])" 2>/dev/null || echo "gece bakimi: state yok"; [ -f .claude/scripts/.state/health.json ] && python3 -c "import json;d=json.load(open('.claude/scripts/.state/health.json'));print('health:',d.get('component'),d.get('error','')[:200])" || echo "health: kayit yok"
 ```
 🟢 `last_status ok`, son koşuların çoğu ok. 🔴 `fail:` ile başlıyor veya son beş koşunun yarısından
 fazlası başarısız; `health.json` içindeki stderr kuyruğu sebebi söyler (limit, ağ, izin).
-Düzeltme: `python3 .claude/scripts/compile.py --dry-run`, sonra `python3 .claude/scripts/compile.py`.
+Düzeltme: `python3 .claude/scripts/gece-bakim.py --dry-run`, sonra `python3 .claude/scripts/gece-bakim.py`.
 
-### 8. Bilgi tabanı: indeks büyüklüğü ve kırık link (yeni)
+### 8. Tetik indeksi ve kırık link
 
 ```bash
-echo "index satiri: $(grep -c '^| \[\[' BİLGİ/index.md)"; python3 - <<'PYL'
-import re; from pathlib import Path
-names={p.stem.casefold() for p in Path('.').rglob('*.md') if '/.trash/' not in str(p)}
-link=re.compile(r'\[\[([^\]|#]+)')
-bad=0; tot=0
-for p in Path('BİLGİ').rglob('*.md'):
-    for m in link.finditer(p.read_text(encoding='utf-8',errors='replace')):
-        tot+=1; bad+= m.group(1).strip().split('/')[-1].casefold() not in names
-print(f"BİLGİ link: {tot}, kırık: {bad}")
-PYL
+python3 -c "import json;d=json.load(open('.claude/tetik-indeks.json'));print('tetik kaydi:',len(d))" 2>/dev/null || echo "tetik-indeks.json: YOK"
 ```
-🟢 kırık 0, indeks 300 satır altı. 🟡 kırık birkaç tane (yeni açılacak not olabilir). 🔴 kırık yüzde
-ondan fazla: dosya adları başlıkla uyuşmuyor. Düzeltme: kavram dosya adı başlığın kendisi olmalı.
+🟢 indeks var ve kayıt sayısı sıfırdan büyük. 🔴 dosya yoksa ipucu satırı hiç basılmıyor demektir;
+`python3 .claude/scripts/index-uret.py` çalıştır.
 
 Vault genelindeki kırık wiki-link ve ölü düz metin yolların tam listesi (dosya başına gruplu):
 `python3 .claude/scripts/saglik.py --linkler`
 
 Yapısal sağlık (öksüz sayfa, eksik proje çekirdeği, tek yönlü link, alan tetiği, kapsam dışı
-klasör, hub eksiği) tam listesi: `python3 .claude/scripts/saglik.py --yapi`
+klasör, hub eksiği, bağlanmamış iş dosyası) tam listesi: `python3 .claude/scripts/saglik.py --yapi`
 
-### 9. Kurallar ve kural adayları
+### 9. Hafıza dosyalarının biçimi ve Bekleyenler
 
 ```bash
-echo "kurallar: $(grep -c '^- \*\*kural:\*\*' HAFIZA/Kurallar.md) madde"; echo "kural adayi: $(grep -c '^- \[' 'HAFIZA/Kural Adayları.md' 2>/dev/null || echo 0) bekliyor"
+echo "kural: $(grep -c '^- \*\*' HAFIZA/Kurallar.md) / 30 madde"; echo "acik konu: $(grep -c '^### ' 'HAFIZA/Açık Konular.md') / 20 madde"; echo "bekleyen: $(grep -c '^- ' 'HAFIZA/Bekleyenler.md' 2>/dev/null || echo 0) madde"; for f in "HAFIZA/Hatırlatmalar.md" "HAFIZA/Token Raporu.md"; do [ -f "$f" ] && echo "$f: var" || echo "$f: YOK"; done
 ```
-🟢 kurallar var. 🟡 aday birikmiş: kullanıcıya sor, onaylananı Kurallar'a taşı, gerisini sil.
+🟢 sayılar sınırın altında, iki yeni dosya yerinde. 🟡 sınır aşılmış: `haftalik` skill'iyle
+sadeleştir, Claude iki madde seçip kullanıcıya sorar. 🟡 Bekleyenler birikmiş: kullanıcıya sor,
+onaylananı Kurallar'a taşı, gerisini sil.
 
 ### 10. Git: uzak depo, push, bekleyen değişiklik (yeni)
 

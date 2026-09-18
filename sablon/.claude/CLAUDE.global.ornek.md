@@ -11,8 +11,8 @@
 ve kuralları konuşmaya enjekte eder; oturum sonunda özeti `GÜNLÜK/` altına yazar,
 `HAFIZA/Son Oturum.md` dosyasını yeniler ve vault'u commit'ler.
 
-Senin payın: `HAFIZA/Açık Konular.md` ve gerekirse `Günce.md` güncel kalsın; kullanıcı seni
-düzelttiğinde düzeltmeyi `HAFIZA/Kurallar.md` dosyasına nedeniyle yaz.
+Senin payın: `HAFIZA/Açık Konular.md` güncel kalsın; kullanıcı seni düzelttiğinde düzeltmeyi
+`HAFIZA/Kurallar.md` dosyasına nedeniyle yaz.
 
 ## Gizlilik
 
